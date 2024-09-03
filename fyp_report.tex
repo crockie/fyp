@@ -21,7 +21,7 @@
 \usepackage{amsfonts}
 \usepackage[sorting=none, style=ieee]{biblatex}
 
-\addbibresource{bib.bib}
+\addbibresource{99-bibliography.bib}
 \setstretch{1.5}
 \setlength{\cftfigindent}{0pt}
 \setlength{\cfttabindent}{0pt}
@@ -36,14 +36,14 @@
 \newcommand\degree{Bachelor of Computing in Computer Science}
 
 \begin{document}
-\input{cover.tex}
-\input{title.tex}
+\input{00-cover.tex}
+\input{01-title.tex}
 
 \setcounter{page}{1}
 \pagenumbering{roman}
 
-\input{abstract.tex}
-\input{acknowledgements.tex}
+\input{02-abstract.tex}
+\input{03-acknowledgements.tex}
 
 \pagebreak
 \addcontentsline{toc}{chapter}{Contents}
@@ -60,7 +60,12 @@
 \cleardoublepage
 \pagenumbering{arabic}
 
-\input{intro.tex}
+\input{10-introduction.tex}
+\input{20-literature_review.tex}
+\input{30-analysis_and_design.tex}
+\input{40-detailed_implementation.tex}
+\input{50-experiments_and_results.tex}
+\input{60-conclusion_and_future_work.tex}
 
 \printbibliography
 
