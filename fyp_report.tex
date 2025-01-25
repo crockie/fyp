@@ -8,6 +8,7 @@
 % 23 Aug 2024 - Replace SCSE with CCDS
 
 \documentclass[pdftex, 12pt, a4paper]{report}
+\usepackage[british]{babel}
 \usepackage{newtxtext, newtxmath}
 \usepackage[top=3cm, bottom=3cm, left=3.5cm, right=3cm]{geometry}
 \usepackage[hidelinks]{hyperref}
@@ -19,7 +20,8 @@
 \usepackage{parskip}
 \usepackage{amsmath}
 \usepackage{amsfonts}
-\usepackage[sorting=none, style=ieee]{biblatex}
+\usepackage[sorting=none, style=ieee, ,citestyle=numeric-comp]{biblatex}
+\DeclareFieldFormat{urldate}{Accessed: #1}
 
 \addbibresource{99-bibliography.bib}
 \setstretch{1.5}
@@ -28,11 +30,11 @@
 \renewcommand{\cftdotsep}{1}
 
 % change the following
-\title{\uppercase{Enhancing Speech Recognition Scalability and Resilience through Decoupled Architecture and Chaos Engineering
+\title{\uppercase{Enhancing Speech Recognition Scalability and Resilience through Decoupled Architecture
 }}
 \newcommand\fypcode{CCDS24-0015}
 \author{Tey Li Zhang Edmund}
-\date{2024}
+\date{2025}
 \newcommand\degree{Bachelor of Computing in Computer Science}
 
 \begin{document}
@@ -64,8 +66,7 @@
 \input{20-literature_review.tex}
 \input{30-analysis_and_design.tex}
 \input{40-detailed_implementation.tex}
-\input{50-experiments_and_results.tex}
-\input{60-conclusion_and_future_work.tex}
+\input{50-conclusion_and_future_work.tex}
 
 \printbibliography
 

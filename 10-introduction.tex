@@ -1,44 +1,35 @@
-\chapter{Introduction}
-
+\chapter{Introduction} \label{chapter:introduction}
 \section{Background}
 
-\subsubsection{Motivation}
+Automatic Speech Recognition (ASR) systems, which convert human speech into text, have become integral to modern voice-driven technologies. While current commercial ASR solutions excel in single-language environments, they often struggle with multilingual scenarios, due to inter- and intra-sentence language variety \cite{code_switching}. The research team at Nanyang Technological University (NTU) Speech Lab addresses this challenge through their innovative multilingual ASR model, capable of transcribing speech in English, Malay, Mandarin, and Singlish \cite{speech_lab,scdf_2}. This development is particularly significant in Singapore's context, where code-switching between languages and dialects is commonplace in daily communication.
 
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Morbi lobortis id nunc a maximus. Nam vitae pellentesque elit. Ut lacus arcu, consectetur at erat sed, sollicitudin suscipit dolor. Sed pharetra, ipsum id volutpat dictum, lacus ante hendrerit mauris, ac tristique orci dui quis dolor. Suspendisse dictum magna vitae fermentum maximus. Quisque vulputate urna id turpis pulvinar suscipit. Praesent sit amet finibus ante. Nullam dignissim sapien ac dolor elementum accumsan. In fermentum tellus eu velit ullamcorper pellentesque id eu eros. Phasellus erat elit, luctus eleifend urna eu, consequat fringilla nisl. Aenean convallis mattis libero, eu dignissim ligula mollis at. Cras pharetra imperdiet risus, in placerat sem ultrices ultrices. Donec eget augue condimentum, efficitur nunc vel, fermentum lacus \cite{book}.
+One prominent user of this ASR system is the Singapore Civil Defence Force (SCDF), which leverages the live transcription service for their emergency call centers \cite{scdf}. The transcription system enables officers to record key information efficiently, saving critical time during emergencies. Consequently, the availability and reliability of the system are paramount, as any disruption could impede communication in life-saving scenarios.
 
-\begin{table}[!ht]
-    \centering
-    \begin{tabular}{@{}cc@{}}
-    \toprule
-    Cast            & Actor / Actress \\ \midrule
-    Harvey Specter  & Gabriel Macht   \\
-    Mike Ross       & Patrick J Adams \\
-    Jessica Pearson & Gina Torres     \\ \bottomrule
-    \end{tabular}
-    \caption{Casts}
-\end{table}
-
-\begin{figure}[!ht]
-    \centering
-    \includegraphics{figures/diag.png}
-    \caption{Image}
-\end{figure}
+The ASR system is currently deployed on Kubernetes across Microsoft Azure and Amazon Web Services (AWS) cloud platforms. Users interact with the system by establishing a WebSocket connection to the server, selecting their desired transcription model. The server assigns a worker to handle the task by forwarding audio data to the worker for transcription. The resulting transcript is then sent back to the user.
 
 \section{Importance}
-Lorem ipsum odor amet, consectetuer adipiscing elit. Iaculis tortor vel cubilia vehicula per. Senectus sit porttitor orci molestie etiam finibus. Ut curabitur curae metus tristique lacinia! Sociosqu maecenas venenatis congue quam aenean posuere. Inceptos etiam torquent lobortis tempor cursus vestibulum aptent eleifend. Sem molestie posuere massa dis consectetur.
+Previous Final Year Project (FYP) students have contributed to various aspects of this ASR system, such as deploying it on AWS with Terraform \cite{song_yu, kai_shern} and enhancing its security \cite{putra}. However, significant limitations persist. The direct communication between the server and workers results in a tightly coupled architecture, making it challenging to scale these components independently to meet fluctuating workloads \cite{tight_couple}. Additionally, both the server and workers maintain state information, such as audio data and worker statuses, exacerbating the scalability challenge.
 
-Mauris laoreet placerat consectetur phasellus conubia primis vivamus molestie volutpat. Commodo vehicula sociosqu potenti dignissim augue nisl convallis consequat class. Purus duis magna curabitur parturient finibus dis. Aliquet semper senectus, nisl libero fames fringilla? Etiam ullamcorper a at posuere sagittis inceptos enim netus. Donec blandit sapien nulla magna nulla montes taciti. Tortor porta luctus consectetur semper tempor porta diam justo.
+System reliability is particularly affected by worker failures, which can occur due to various factors including resource exhaustion, node crashes, or network disruptions. These failures result in unprocessed audio segments, creating gaps in transcription that significantly impact service continuity. Such limitations directly compromise the system's ability to meet its Service Level Objectives (SLOs), particularly in terms of latency and availability, potentially affecting critical operations of its users.
 
-\section{Objectives}
-Lorem ipsum odor amet, consectetuer adipiscing elit. Facilisis fusce ut quisque magnis ipsum nisi lectus metus aenean. Habitant pharetra venenatis pulvinar justo velit at. Erat nunc mauris; urna nam semper gravida. Amet orci ultricies dapibus dignissim ligula metus. At himenaeos primis maecenas lacinia finibus at justo volutpat. Enim neque hac elementum; suscipit augue morbi? Ad in odio vitae sagittis praesent at porttitor. Tristique egestas semper varius venenatis morbi ultrices neque diam integer. Pellentesque finibus posuere tellus vestibulum velit etiam senectus.
 
-\section{Project Scope}
-Lorem ipsum odor amet, consectetuer adipiscing elit. Duis habitant faucibus at eget ex, duis nostra per. Ultricies lacinia penatibus fusce hendrerit donec. Torquent ante fermentum suscipit; natoque pharetra rhoncus maecenas. Faucibus laoreet cras fusce mauris posuere adipiscing lacinia conubia. Adipiscing mi mauris blandit taciti facilisi scelerisque vulputate egestas. Neque imperdiet consectetur vehicula dui finibus tellus hac purus. Porta non enim augue netus luctus senectus massa.
+\section{Objective, Scope, and Significance}
+The objective of this FYP is to enhance the scalability and availability of the ASR system by transitioning to a decoupled architecture. To accomplish this, the project scope includes redesigning the system architecture to decouple components using a message queue; developing a dynamic and predictive scaling policy for workers; and designing mechanisms to minimize latency during worker failures. The modifications to the underlying ASR model, security aspects of the application and monitoring will be out-of-scope for this project.
 
-\section{Contributions}
-Lorem ipsum odor amet, consectetuer adipiscing elit. In varius suspendisse fermentum sociosqu accumsan bibendum tincidunt adipiscing. Fames praesent phasellus senectus sodales mattis laoreet. Porttitor torquent aenean vel habitant cubilia gravida. Lobortis natoque torquent, torquent quis lacinia habitasse? Lobortis tempus tellus pretium eget nulla sit bibendum. Ullamcorper fames nunc porttitor ante sem ante inceptos diam.
+The significance of this research lies in its potential to enhance the system’s fault tolerance and ability to handle fluctuating traffic loads. By addressing these limitations, the project aims to provide improved support for NTU Speech Lab’s users, ensuring the reliability of the ASR service for critical applications such as SCDF’s emergency operations.
 
 \section{Report Organisation}
-Lorem ipsum odor amet, consectetuer adipiscing elit. Integer sapien molestie cursus venenatis, ultrices vivamus platea pulvinar molestie. Condimentum non enim vel et maximus vestibulum. Gravida fusce venenatis nibh semper dignissim primis eleifend nullam. Adipiscing nisl volutpat habitant felis tortor. Natoque ipsum netus per arcu platea ullamcorper? Laoreet taciti volutpat ad posuere senectus vitae. Pulvinar duis eget ante quisque; fringilla iaculis aliquam torquent sit.
+This report is structured into five chapters, each focusing on a specific aspect of the project:
 
-Metus ultricies dapibus curae elementum aptent ipsum proin. Turpis mollis himenaeos nisl non lacinia per rhoncus malesuada. Facilisis pretium finibus est curae auctor et a scelerisque. Porttitor varius ultricies natoque; blandit cursus nec. Suscipit nulla consequat maecenas, molestie nascetur at nulla venenatis. Tincidunt euismod volutpat mollis quisque; diam tortor dignissim. Lobortis morbi ultricies rhoncus lectus mauris.
+\begin{itemize}
+    \item \hyperref[chapter:introduction]{\textbf{Chapter 1: Introduction}} - This chapter provides an overview of the project, including its background, importance, objectives, scope, and significance.
+    
+    \item \hyperref[chapter:literature_review]{\textbf{Chapter 2: Literature Review}} - This chapter reviews previous FYP works on the ASR system and introduces the relevant technologies used in the project.
+    
+    \item \hyperref[chapter:analysis_and_design]{\textbf{Chapter 3: Analysis and Design}} - This chapter presents an analysis of the current ASR system architecture and identifies its limitations. It then describes the proposed decoupled architecture, including the use of message queues and dynamic scaling policies.
+    
+    \item \hyperref[chapter:detailed_implementation]{\textbf{Chapter 4: Detailed Implementation}} - This chapter provides a detailed implementation of the new architecture, the development of the dynamic scaling policy, and the mechanisms implemented to handle worker failures.
+    
+    \item \hyperref[chapter:conclusion_and_future_work]{\textbf{Chapter 5: Conclusion and Future Work}} - This chapter summarizes the contributions of the project. It also outlines potential areas for future research and development to further improve the ASR system.
+\end{itemize}
+
