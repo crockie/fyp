@@ -70,23 +70,23 @@ To handle failures of the Live Processing Service:
     \item The Live Processing Service uses the existing task and result queues to continue processing and retrieving results, ensuring no data is lost.
 \end{enumerate}
 
-\subsection{Worker Manager} \label{subsection:worker_manager}
+\section{Worker Manager} \label{section:worker_manager}
 The Worker Manager is a key component of the system responsible for managing and coordinating worker pods. Its functionality is divided into four main responsibilities:
 \begin{enumerate}
     \item \textbf{Worker Allocation:} Assigning idle workers to process audio data.
-    \item \textbf{Health Monitoring:} Receiving and monitoring periodic heartbeats from workers to track their health.
-    \item \textbf{Task Reassignment:} Detecting worker failures and reallocating tasks to new workers when necessary.
-    \item \textbf{Scaling Policy:} Dynamically scaling the number of worker pods based on the current system load.
+    \item \textbf{Health Monitoring:} Tracking worker health via periodic heartbeats.
+    \item \textbf{Task Reassignment:} Detecting worker failures and reallocating tasks as needed.
+    \item \textbf{Scaling Policy:} Dynamically adjusting the number of worker pods based on system load.
 \end{enumerate}
 
 
 The Worker Manager consists of two main components:
 \begin{enumerate}
     \item \textbf{Worker Manager Server:} Hosts the gRPC API for worker heartbeats and worker allocation requests.
-    \item \textbf{Worker Manager Monitor:} A separate service that oversees the health of workers and implements scaling policies.
+    \item \textbf{Worker Manager Monitor:} Tracks worker health and implements scaling policies.
 \end{enumerate}
 
-\subsubsection{Worker Manager Server}
+\subsection{Worker Manager Server}
 The Worker Manager Server provides two primary gRPC APIs as shown in  Code \ref{lst:worker_manager_server}:
 \begin{itemize}
     \item \texttt{AllocateWorker}: Allocates an idle worker to process audio data for a given task.
@@ -126,8 +126,61 @@ message SendHeartbeatResponse {
 }
 \end{lstlisting}    
 
-\subsubsection{Worker Manager Monitor}
-Worker manager monitor is a separate service that monitors the health of the workers. It listens to the heartbeats sent by the workers and updates the worker status in Redis. The worker manager monitor is responsible for detecting worker failures and reassigning tasks to new workers. Code \ref{lst:worker_scaling} shows the worker manager monitor's implementation.
+\subsection{Worker Manager Monitor}
+The Worker Manager Monitor is responsible for detecting worker failures and reallocating tasks. It listens for worker heartbeats and updates worker status in Redis. If a worker fails to send a heartbeat within a defined timeout, it is assumed to be unavailable, and its task is reassigned to another worker. Code \ref{lst:worker_fault_tolerance} shows the implementation of the worker fault tolerance mechanism.
+
+\begin{lstlisting}[language=python, caption={Worker Fault Tolerance Mechanism}, label={lst:worker_fault_tolerance}]
+  async def monitor_heartbeats(self):
+        """
+        Monitor worker heartbeats and reallocate workers if necessary.
+        """
+        logger.info("Monitoring worker heartbeats...")
+        self.redis_client = self.redis.get_client()
+        while True:
+            current_time = asyncio.get_event_loop().time()
+            # logger.debug(f"Current time: {current_time}")
+            for worker_name, value in self.redis_client.hgetall(
+                "WorkerHeartbeats"
+            ).items():
+                lock_key = f"lock:worker_heartbeat:{worker_name}"
+                try:
+                    # Acquire distributed lock
+                    if self.acquire_lock(lock_key):
+                        model_name, last_heartbeat = value.split(",")
+                        if (
+                            current_time - float(last_heartbeat)
+                            > WORKER_HEARTBEAT_TIMEOUT
+                        ):
+                            logger.info(
+                                f"Worker {worker_name} missed heartbeat. Allocating new worker."
+                            )
+                            try:
+                                task_queue = self.redis_client.hget(
+                                    "TaskAllocation", f"Worker:{worker_name}"
+                                )
+                            except Exception as e:
+                                logger.error(f"Failed to get task queue: {str(e)}")
+                                raise
+                            self.allocate_worker(model_name, task_queue)
+                            self.redis_client.hdel("WorkerHeartbeats", worker_name)
+                            logger.info(f"Worker {worker_name} deallocated.")
+                    else:
+                        logger.warning(f"Failed to acquire lock for {worker_name}")
+                except Exception as e:
+                    logger.error(
+                        f"Failed to monitor heartbeat for {worker_name}: {str(e)}"
+                    )
+                finally:
+                    # Release distributed lock
+                    self.release_lock(lock_key)
+
+            await asyncio.sleep(WORKER_MANAGER_MONITOR_INTERVAL)
+\end{lstlisting}
+
+The Worker Manager first acquire a lock of the worker, to prevent multiple instances of the Worker Manager from processing the same worker. It then checks the last heartbeat time of the worker. If the worker has not sent a heartbeat within the specified timeout, the Worker Manager deallocates the worker and assigns a new worker to the task.
+
+\subsubsection{Worker Scaling Policy}
+The worker manager is also in charged of scaling the number of worker pods based on the current system load. A configurable \texttt{SCALING\_TARGET} is set to determine the number of idle pods required at any time. Code \ref{lst:worker_scaling} shows a snippet of the worker manager monitor's implementation.
 
 \begin{lstlisting}[language=python, caption={Worker Scaling Policy}, label={lst:worker_scaling}]
 async def monitor_and_scale():
@@ -158,10 +211,13 @@ async def monitor_and_scale():
         await asyncio.sleep(CHECK_INTERVAL)
 \end{lstlisting}
 
+The system checks idle pods every \texttt{CHECK\_INTERVAL} seconds, ensuring that scaling adjustments do not occur too frequently. This is to allow for the previous scaling operation to taken effect before the next check, preventing excessive scaling activity.
+
+
+\subsubsection{Health and Readiness Checks}
 The Worker Manager Monitor performs health and readiness checks to ensure it is ready to handle requests. These checks are essential for maintaining the reliability and availability of the system. 
 
 Code \ref{lst:health_check} shows the implementation of the health and readiness checks.
-
 
 \begin{lstlisting}[language=python, caption={Worker Manager Monitor Health and Readiness Checks}, label={lst:health_check}]
 async def healthz(request):
@@ -496,10 +552,82 @@ The deployment includes the following components:
     \item \textbf{Persistent Volume and Persistent Volume Claim:}  Defines the storage requirements for the EFS  volume used by the ASR system.
 \end{itemize}
 
-\textit{To include Kubernetes dashboard set-up.}
+
 
 \subsubsection{Helm Charts}
 \textit{To include Helm charts to deploy RabbitMQ and Redis clusters.}
 
-\section{Chaos Engineering}
-\textit{To be done.}
+\subsection{Kubernetes Dashboard}
+To effectively visualize the Kubernetes cluster and monitor deployed resources, the Kubernetes Dashboard provides a graphical interface for managing the cluster, inspecting workloads, and troubleshooting issues. The dashboard allows users to view real-time metrics, manage deployments, and analyze resource utilization. Figure \ref{fig:kubernetes_dashboard} illustrates an example of the Kubernetes Dashboard.
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\textwidth]{figures/kubernetes_dashboard.png}
+  \caption{Kubernetes Dashboard}
+  \label{fig:kubernetes_dashboard}
+\end{figure}
+
+\subsubsection{Installing the Kubernetes Dashboard}
+The Kubernetes Dashboard can be installed using Helm with the following commands:
+
+\begin{verbatim}
+helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+helm upgrade --install kubernetes-dashboard \
+  kubernetes-dashboard/kubernetes-dashboard \
+  --create-namespace --namespace kubernetes-dashboard
+\end{verbatim}
+
+\subsubsection{Configuring Access and Permissions}
+Before accessing the dashboard, a set of required resources must be configured, including:
+
+\begin{itemize}
+  \item \textbf{Service Account:} Grants access to the dashboard.
+  \item \textbf{Cluster Role Binding:} Assigns permissions to the service account.
+  \item \textbf{Secret Token:} Authenticates the dashboard.
+\end{itemize}
+
+The following Kubernetes configuration file (Code \ref{lst:k8s_dashboard_dependencies}) sets up these dependencies:
+
+\begin{lstlisting}[language=Kubernetes, caption={Kubernetes Configuration for Setting Up Dashboard Dependencies}, label={lst:k8s_dashboard_dependencies}]
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: admin-user
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: cluster-admin
+subjects:
+  - kind: ServiceAccount
+    name: admin-user
+    namespace: kubernetes-dashboard
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: admin-user
+  namespace: kubernetes-dashboard
+  annotations:
+    kubernetes.io/service-account.name: "admin-user"
+type: kubernetes.io/service-account-token
+\end{lstlisting}
+
+\subsubsection{Accessing the Dashboard}
+Once the dashboard and necessary permissions are set up, port forwarding can be used to expose the dashboard locally:
+\begin{verbatim}
+kubectl -n kubernetes-dashboard port-forward \
+  svc/kubernetes-dashboard-kong-proxy 8443:443
+\end{verbatim}
+
+After running this command, open a web browser and navigate to: \texttt{https://localhost:8443}.
+
+\subsubsection{Generating Token}
+To log in to the dashboard, generate an authentication token using:
+\begin{verbatim}
+kubectl -n kubernetes-dashboard create token admin-user
+\end{verbatim}

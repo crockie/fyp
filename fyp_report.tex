@@ -90,6 +90,24 @@
   morestring=[s]{<<}{>>},
 }
 
+\lstdefinelanguage{Kubernetes}{
+  morekeywords={
+    apiVersion, kind, metadata, spec, containers, name, image, ports, resources,
+    requests, limits, deployment, replicas, selector, matchLabels, template, labels,
+    app, service, type, NodePort, ports, targetPort, selector, ingress, rules, host,
+    paths, path, backend, serviceName, servicePort, annotations, cert-manager.io/cluster-issuer,
+    tls, secretName, spec, tls, hosts, secretName, issuerRef, name, namespace, spec, rules,
+    host, http, paths, path, pathType, backend, service, port, status, loadBalancer, subjects, roleRef, apiGroup
+  },
+  alsoletter={kubernetes.io/service-account.name, kubernetes.io/service-account-token},
+  sensitive=true,
+  morecomment=[l]{//},
+  morecomment=[s]{/*}{*/},
+  morestring=[b]",
+  morestring=[b]',
+  morestring=[s]{<<}{>>},
+}
+
 \addbibresource{99-bibliography.bib}
 \setstretch{1.5}
 \setlength{\cftfigindent}{0pt}

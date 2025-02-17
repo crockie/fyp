@@ -41,7 +41,7 @@ The new architecture incorporates:
     \item \textbf{Dynamic Worker Scaling via Worker Manager:} A new Worker Manager service dynamically adjusts worker pod replicas based on configurable \texttt{SCALING\_TARGET} (See Code \ref{lst:worker_scaling}).
 \end{itemize}
 
-The dynamic scaling policy is managed by an additional service called the Worker Manager, which is described in detail in \hyperref[subsection:worker_manager]{\textit{Chapter 4: Detailed Implementation}}. The Worker Manager monitors the current state of worker pods for each model and adjusts the number of pods accordingly to maintain the scaling target.
+The dynamic scaling policy is managed by an additional service called the Worker Manager, which is described in detail in \hyperref[section:worker_manager]{\textit{Chapter 4: Detailed Implementation}}. The Worker Manager monitors the current state of worker pods for each model and adjusts the number of pods accordingly to maintain the scaling target.
 
 Key features of this solution include:
 \begin{itemize}
