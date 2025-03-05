@@ -49,7 +49,7 @@ The sequence diagram in Figure \ref{fig:sequence_diagram} provides a detailed vi
     \item Partial transcription results are sent to the result queue as the audio is processed.
     \item The Live Processing Service retrieves these partial results from the result queue and streams them back to the client via the WebSocket connection.
     \item Workers send periodic heartbeats to the Worker Manager to confirm their health status.
-    \item When the client detects the end of speech, it notifies the Live Processing Service, which marks the task as complete by sending a special \texttt{EOS} message to the task queue.
+    \item When the client detects the end of speech, it notifies the Live Processing Service, which marks the task as complete by sending a special End of Speech (\texttt{EOS}) message to the task queue.
     \item Upon processing the \texttt{EOS} message, the worker updates its state in Redis to \texttt{IDLE} and sends the final transcription result to the result queue.
     \item The Live Processing Service retrieves the final result from the result queue and delivers it to the client via WebSocket.
     \item Once all results are delivered, the WebSocket connection is closed.
@@ -69,6 +69,94 @@ To handle failures of the Live Processing Service:
     \item The client reestablishes a WebSocket connection to the Live Processing Service and resends the transcription request using the same task UUID.
     \item The Live Processing Service uses the existing task and result queues to continue processing and retrieving results, ensuring no data is lost.
 \end{enumerate}
+
+\section{Live Processing Service}
+The Live Processing Service manages WebSocket connections with clients to facilitate real-time transcription. Its primary functions include:
+\begin{enumerate}
+  \item \textbf{WebSocket Communication:} Establishing and managing WebSocket connections to stream transcription results in real time.
+  \item \textbf{Task Management:} Creating and managing task and result queues in RabbitMQ for each transcription request.
+  \item \textbf{Worker Allocation:} Requesting worker allocation from the Worker Manager based on the required ASR model.
+\end{enumerate}
+
+
+The Live Processing Service is built using Tornado \cite{tornado}, an asynchronous web framework optimized for handling long-lived connections and scaling to thousands of concurrent WebSocket sessions. This makes it well-suited for real-time applications such the ASR system.
+
+\subsection{WebSocket Handler}
+The WebSocket handler manages WebSocket connections with clients and streams transcription results back to them. It processes the following events:
+
+\begin{itemize}
+    \item \textbf{open:} Authenticates incoming WebSocket requests, initializes task and result queues in RabbitMQ, requests worker allocation from the Worker Manager, and starts consuming messages from the result queue.
+    \item \textbf{on\_message:} Receives audio data from the client and places it into the task queue. If the message contains the final audio chunk, it deletes the associated task and result queues.
+    \item \textbf{close:} Closes the WebSocket connection with the client and performs cleanup operations.
+\end{itemize}
+
+\subsection{Asynchronous RabbitMQ}
+To maintain non-blocking performance, the Live Processing Service utilizes an asynchronous RabbitMQ client compatible with Tornado. This enables concurrent task management without disrupting the event loop.
+
+A dedicated asynchronous RabbitMQ client with exponential backoff was implemented to handle network disruptions and RabbitMQ failures. Code \ref{lst:rabbitmq_client} illustrates the implementation.
+
+\begin{lstlisting}[language=python, caption={Asynchronous RabbitMQ Client}, label={lst:rabbitmq_client}]
+async def connect(self):
+      """
+      Connect to RabbitMQ.
+      """
+      attempts = 0
+      while attempts < RABBITMQ_MAX_RETRIES:
+          try:
+              self.logger.info(f"trying to connect to {self.host}:{self.port}")
+              self.logger.info(f"using {self.username} as username")
+              self.connection = await aio_pika.connect_robust(
+                  host=self.host,
+                  port=self.port,
+                  login=self.username,
+                  password=self.password,
+              )
+              self.logger.info("Connected to RabbitMQ")
+              break
+          except Exception as e:
+              self.logger.error(f"Failed to connect to RabbitMQ: {e}")
+              attempts += 1
+              await asyncio.sleep(RABBITMQ_BACKOFF_FACTOR * attempts)
+\end{lstlisting}
+
+\subsection{Worker Allocation via gRPC}
+The Live Processing Service requests worker allocation from the Worker Manager using gRPC. This ensures low-latency, efficient communication, which is critical for real-time transcription.
+
+To allocate a worker for a transcription task, the Live Processing Service sends a gRPC request specifying the required ASR model. The Worker Manager responds with an available worker instance. This interaction leverages Protocol Buffers for efficient data serialization and the gRPC stub generated from the service definition.
+
+Code \ref{lst:grpc_request} illustrates the gRPC request process.
+
+\begin{lstlisting}[language=python, caption={gRPC Request for Worker Allocation}, label={lst:grpc_request}]
+async def allocate_worker_from_worker_manger(self, model_name, task_queue):
+      """
+      Allocate an idle worker from the WorkerManager service.
+
+      Args:
+          model_name (str): Name of the model to allocate the worker for.
+          task_queue (str): Name of the task queue to assign to the worker.
+      """
+      async with grpc.aio.insecure_channel(
+          f"{WORKER_MANAGER_SERVICE}:{WORKER_MANAGER_PORT}"
+      ) as channel:
+          stub = worker_manager_pb2_grpc.WorkerManagerServiceStub(channel)
+          request = worker_manager_pb2.AllocateWorkerRequest(
+              model_name=model_name, task_queue=task_queue
+          )
+          response = await stub.AllocateWorker(request)
+
+          if response.success:
+              logger.info(
+                  f"Worker {response.worker_name} allocated successfully: {response.message}"
+              )
+              return response.worker_name
+          else:
+              logger.error(f"Failed to allocate worker: {response.message}")
+              return None
+\end{lstlisting}
+
+
+\section{Worker}
+To do
 
 \section{Worker Manager} \label{section:worker_manager}
 The Worker Manager is responsible for managing and coordinating worker pods to ensure efficient task processing and fault tolerance. Its core responsibilities include:
