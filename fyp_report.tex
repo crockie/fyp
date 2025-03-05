@@ -24,6 +24,7 @@
 \usepackage{float}
 \usepackage{soul}
 \usepackage{microtype}
+\usepackage[toc]{appendix}
 \usepackage[sorting=none, style=ieee, ,citestyle=numeric-comp]{biblatex}
 
 % Unicode support for file structure diagrams
@@ -97,6 +98,7 @@
     app, service, type, NodePort, ports, targetPort, selector, ingress, rules, host,
     paths, path, backend, serviceName, servicePort, annotations, cert-manager.io/cluster-issuer,
     tls, secretName, spec, tls, hosts, secretName, issuerRef, name, namespace, spec, rules,
+    metrics, scaleTargetRef, minReplicas, maxReplicas, resource, target, averageUtilization,
     host, http, paths, path, pathType, backend, service, port, status, loadBalancer, subjects, roleRef, apiGroup
   },
   alsoletter={kubernetes.io/service-account.name, kubernetes.io/service-account-token},
@@ -155,5 +157,7 @@
 \input{50-conclusion_and_future_work.tex}
 
 \printbibliography
+
+\input{60-relevant_code_snippets.tex}
 
 \end{document}

@@ -71,63 +71,33 @@ To handle failures of the Live Processing Service:
 \end{enumerate}
 
 \section{Worker Manager} \label{section:worker_manager}
-The Worker Manager is a key component of the system responsible for managing and coordinating worker pods. Its functionality is divided into four main responsibilities:
+The Worker Manager is responsible for managing and coordinating worker pods to ensure efficient task processing and fault tolerance. Its core responsibilities include:
 \begin{enumerate}
-    \item \textbf{Worker Allocation:} Assigning idle workers to process audio data.
-    \item \textbf{Health Monitoring:} Tracking worker health via periodic heartbeats.
-    \item \textbf{Task Reassignment:} Detecting worker failures and reallocating tasks as needed.
-    \item \textbf{Scaling Policy:} Dynamically adjusting the number of worker pods based on system load.
+  \item \textbf{Worker Allocation:} Assigning idle workers to process incoming audio data.
+  \item \textbf{Health Monitoring:} Tracking worker health through periodic heartbeats.
+  \item \textbf{Task Reassignment:} Detecting worker failures and reallocating tasks to maintain continuity.
+  \item \textbf{Scaling Policy:} Dynamically adjusting the number of worker pods based on system load.
 \end{enumerate}
 
 
-The Worker Manager consists of two main components:
-\begin{enumerate}
-    \item \textbf{Worker Manager Server:} Hosts the gRPC API for worker heartbeats and worker allocation requests.
-    \item \textbf{Worker Manager Monitor:} Tracks worker health and implements scaling policies.
-\end{enumerate}
-
-\subsection{Worker Manager Server}
-The Worker Manager Server provides two primary gRPC APIs as shown in  Code \ref{lst:worker_manager_server}:
+The Worker Manager consists of two primary components:
 \begin{itemize}
-    \item \texttt{AllocateWorker}: Allocates an idle worker to process audio data for a given task.
-    \item \texttt{SendHeartbeat}: Receives heartbeats from workers to monitor their health status.
+    \item \textbf{Worker Manager Server:} Exposes gRPC APIs for worker allocation and heartbeat monitoring.
+    \item \textbf{Worker Manager Monitor:} Detects worker failures, reallocates tasks, and enforces scaling policies.
 \end{itemize}
 
-\begin{lstlisting}[language=Proto3, caption={Worker Manager Server gRPC Proto File}, label={lst:worker_manager_server}]
-syntax = "proto3";
+\subsection{Worker Manager Server}
+The Worker Manager Server provides two main gRPC endpoints (Code \ref{lst:worker_manager_server}):
+\begin{itemize}
+    \item \texttt{AllocateWorker}: Assigns an idle worker to handle a given transcription task.
+    \item \texttt{SendHeartbeat}: Receives periodic heartbeats from workers to track their health status.
+\end{itemize}
 
-package worker_manager;
-
-service WorkerManagerService {
-    rpc AllocateWorker (AllocateWorkerRequest) returns (AllocateWorkerResponse);
-    rpc SendHeartbeat (SendHeartbeatRequest) returns (SendHeartbeatResponse);
-}
-
-message AllocateWorkerRequest {
-    string model_name = 1;
-    string task_queue = 2;
-}
-
-message AllocateWorkerResponse {
-    bool success = 1;
-    string worker_name = 2;
-    string message = 3;
-}
-
-message SendHeartbeatRequest {
-    string worker_name = 1;
-    string model_name = 2;
-    bool final = 3;
-}
-
-message SendHeartbeatResponse {
-    bool success = 1;
-    string message = 2;
-}
-\end{lstlisting}    
 
 \subsection{Worker Manager Monitor}
-The Worker Manager Monitor is responsible for detecting worker failures and reallocating tasks. It listens for worker heartbeats and updates worker status in Redis. If a worker fails to send a heartbeat within a defined timeout, it is assumed to be unavailable, and its task is reassigned to another worker. Code \ref{lst:worker_fault_tolerance} shows the implementation of the worker fault tolerance mechanism.
+The Worker Manager Monitor oversees worker health and task reallocation. It listens for heartbeats and updates worker status in Redis. If a worker fails to send a heartbeat within a predefined timeout, it is considered unavailable, and its task is reassigned. 
+
+Code \ref{lst:worker_fault_tolerance} illustrates the fault tolerance mechanism.
 
 \begin{lstlisting}[language=python, caption={Worker Fault Tolerance Mechanism}, label={lst:worker_fault_tolerance}]
   async def monitor_heartbeats(self):
@@ -177,10 +147,30 @@ The Worker Manager Monitor is responsible for detecting worker failures and real
             await asyncio.sleep(WORKER_MANAGER_MONITOR_INTERVAL)
 \end{lstlisting}
 
-The Worker Manager first acquire a lock of the worker, to prevent multiple instances of the Worker Manager from processing the same worker. It then checks the last heartbeat time of the worker. If the worker has not sent a heartbeat within the specified timeout, the Worker Manager deallocates the worker and assigns a new worker to the task.
+To prevent race conditions when multiple Worker Manager pods are deployed, the Worker Manager first acquires a distributed lock before checking a worker’s last heartbeat. If a worker exceeds the timeout threshold, it is removed, and a new worker is assigned to its task queue.
+
+\subsubsection{Testing Worker Fault Tolerance}
+To validate the fault tolerance mechanism, the Worker Manager was tested under failure scenarios, such as unexpected worker crashes.
+
+To simulate a worker failure, worker pod processing the audio data can be delibrately terminated using the following command:
+\begin{verbatim}
+  kubectl delete -n asr-sdk --now <worker-pod-name> \
+    --cascade=background
+\end{verbatim}
+
+Figure \ref{fig:worker_fault_tolerance} illustrates the Worker Manager detecting that the worker pod \texttt{worker-\allowbreak stateful-english-0} has failed to send a heartbeat. As a result, it reallocates the task to an available idle worker, \texttt{worker-stateful-english-1}, ensuring uninterrupted processing.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\textwidth]{figures/worker_fault_tolerance.png}
+  \caption{Worker Fault Tolerance Testing}
+  \label{fig:worker_fault_tolerance}
+\end{figure}
 
 \subsubsection{Worker Scaling Policy}
-The worker manager is also in charged of scaling the number of worker pods based on the current system load. A configurable \texttt{SCALING\_TARGET} is set to determine the number of idle pods required at any time. Code \ref{lst:worker_scaling} shows a snippet of the worker manager monitor's implementation.
+The Worker Manager dynamically scales worker pods based on system load. A configurable threshold (\texttt{SCALING\_TARGET}) defines the minimum number of idle pods required at any time. The Worker Manager periodically evaluates worker utilization and adjusts the number of replicas accordingly. 
+
+Code \ref{lst:worker_scaling} shows the worker scaling mechanism.
 
 \begin{lstlisting}[language=python, caption={Worker Scaling Policy}, label={lst:worker_scaling}]
 async def monitor_and_scale():
@@ -213,6 +203,18 @@ async def monitor_and_scale():
 
 The system checks idle pods every \texttt{CHECK\_INTERVAL} seconds, ensuring that scaling adjustments do not occur too frequently. This is to allow for the previous scaling operation to taken effect before the next check, preventing excessive scaling activity.
 
+\subsubsection{Testing Worker Scaling}
+To validate the worker scaling policy, the system was tested under varying workloads to observe how the Worker Manager adapts in real time.
+
+Figure \ref{fig:worker_scaling_up_down} shows the logs of the Worker Manager, illustrating the dynamic scaling behavior of the Worker Manager. When a transcription task starts and an available worker is assigned to process it, the number of idle pods drops below the \texttt{SCALING\_TARGET}, triggering an automatic scale-up. Conversely, once the task is completed and the worker becomes idle again, the Worker Manager scales down the replicas to optimize resource usage.
+
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\textwidth]{figures/worker_scaling_up_down.png}
+  \caption{Worker Scaling Up and Down}
+  \label{fig:worker_scaling_up_down}
+\end{figure}
 
 \subsubsection{Health and Readiness Checks}
 The Worker Manager Monitor performs health and readiness checks to ensure it is ready to handle requests. These checks are essential for maintaining the reliability and availability of the system. 
@@ -249,74 +251,48 @@ The readiness check (\texttt{ready}) performs the following validations to ensur
     \item \textbf{Lock Acquisition:} Ensures the monitor can acquire and release a distributed lock, which is critical for managing shared resources.
 \end{enumerate}
 
-When deployed on Kubernetes, it continuously monitors the readiness and liveness endpoints to determine if the service is ready to receive traffic or if it needs to be restarted.
+When deployed on Kubernetes, it continuously monitors the readiness and liveness endpoints to determine if the service is ready to receive traffic or if it needs to be restarted. Figure \ref{fig:k8s_healthcheck} shows the successful readiness and liveness check at every 10 seconds interval.
 
-\section{Deployment}
-The deployment contains two main parts: infrastructure deployment and Kubernetes cluster deployment.
-\subsection{Infrastructure Deployment}
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=\textwidth]{figures/k8s_healthcheck.png}
+  \caption{Kubernetes Readiness and Liveness Checks}
+  \label{fig:k8s_healthcheck}
+\end{figure}
+
+\section{Infrastructure Deployment}
 The infrastructure is deployed using Terraform, an Infrastructure-as-Code (IaC) tool that allows for the provisioning of cloud resources in a declarative manner. Terraform compares the desired state defined in configuration files with the current state of the cloud environment and makes the necessary changes to achieve the desired state.
 
-\subsubsection{AWS Access Key and CLI Configuration}
+\subsection{AWS Access Key and CLI Configuration}
 To interact with AWS services, it is necessary to create an AWS access key. This can be done by navigating to the account credentials section in the AWS Management Console and creating an access key.
 
 Once the access key is generated, the AWS CLI can be configured by running the command:
 \begin{verbatim}
-aws configure
+  aws configure
 \end{verbatim}
 The CLI will prompt for the access key, secret key, region, and output format. For ease of use, a named profile can also be set up using:
 \begin{verbatim}
-aws configure --profile <profile-name>
+  aws configure --profile <profile-name>
 \end{verbatim}
 This enables switching between different AWS accounts and regions as needed.
 
-\subsubsection{Setting Up Terraform Configuration}
+\subsection{Setting Up Terraform Configuration}
 Terraform is used to manage infrastructure as code. There are three main Terraform commands:
 \begin{itemize}
     \item \texttt{terraform init}: Initializes the configuration, downloads necessary providers, and sets up modules.
-    \item \texttt{terraform plan}: Generates an execution plan to show the changes Terraform will make to the infrastructure.
+    \item \texttt{terraform plan}: Generates an execution plan to show the changes Terraform will make to the infrastructure. Code \ref{lst:terraform_plan} shows an example of the Terraform execution plan output.
     \item \texttt{terraform apply}: Applies the changes to create or update infrastructure resources.
 \end{itemize}
 
-Code \ref{lst:terraform_plan} shows an example of the Terraform execution plan output.
-
-\begin{lstlisting}[language=Terraform, caption={Terraform Plan Output}, label={lst:terraform_plan}]
-Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
-    + create
-    <= read (data resources)
-  
-    Terraform will perform the following actions:
-    
-        # module.eks.aws_eks_addon.efs_csi_driver will be created
-        + resource "aws_eks_addon" "efs_csi_driver" {
-            + addon_name           = "aws-efs-csi-driver"
-            + addon_version        = "v2.1.3-eksbuild.1"
-            + arn                  = (known after apply)
-            + cluster_name         = "ed-fyp-eks-cluster"
-            + configuration_values = (known after apply)
-            + created_at           = (known after apply)
-            + id                   = (known after apply)
-            + modified_at          = (known after apply)
-            + tags_all             = {
-                + "Environment" = "Development"
-                + "Owner"       = "Edmund"
-                + "Terraform"   = "True"
-            }
-        
-    ... (output truncated) ...
-
-    Plan: 37 to add, 0 to change, 0 to destroy.
-
-\end{lstlisting}
-
 Once we verify the plan, we can apply the changes to the infrastructure using: 
 \begin{verbatim}
-terraform apply
+  terraform apply
 \end{verbatim}
 
 This will update our cloud environment to match the desired state defined in the Terraform configuration files.
 
 
-\subsubsection{Storing State Files in S3}
+\subsection{Storing State Files in S3}
 To enable collaboration among multiple developers, the Terraform state file can be stored in an Amazon S3 bucket. The state file contains the current infrastructure state and helps Terraform determine necessary changes for future deployments.
 
 
@@ -381,69 +357,10 @@ terraform {
 }
 \end{lstlisting}
 
-\subsubsection{Deploying Terraform Resources}
+\subsection{Deploying Terraform Resources}
 The Terraform configuration files reference Song's Terraform modules \cite{song_yu}, with enhancements such as storing the Terraform state in an S3 bucket and simplifying deployment by creating an EFS CSI driver for the EFS volume. This driver allows Kubernetes pods to mount the EFS volume, enabling seamless integration.
 
 The Terraform configuration for creating the EFS CSI driver and attaching it to the EFS volume is shown in Code \ref{lst:efs_csi_driver}. This configuration sets up the necessary IAM role, policy attachments, and the EFS CSI driver for an EKS cluster.
-
-\begin{lstlisting}[language=Terraform, caption={Terraform Configuration for Creating EFS CSI Driver}, label={lst:efs_csi_driver},breaklines=true]
-module "eks" {
-  source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.31"
-
-  cluster_name    = var.cluster_name
-  cluster_version = "1.31"
-
-  vpc_id     = var.vpc_id
-  subnet_ids = var.subnet_ids
-
-  cluster_endpoint_private_access          = true
-  cluster_endpoint_public_access           = true
-  enable_cluster_creator_admin_permissions = true
-
-  cluster_compute_config = {
-    enabled    = true
-    node_pools = ["general-purpose"]
-  }
-}
-
-resource "aws_eks_addon" "efs_csi_driver" {
-  cluster_name  = module.eks.cluster_name
-  addon_name    = "aws-efs-csi-driver"
-  addon_version = "v2.1.3-eksbuild.1"
-}
-
-resource "aws_iam_role" "efs_csi_role" {
-  name = "EKS_EFS_CSI_DriverRole"
-  assume_role_policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Action = [
-          "sts:AssumeRoleWithWebIdentity",
-        ]
-        Principal = {
-          Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}: oidc-provider/${module.eks.cluster_oidc_issuer_url}"
-        }
-        Effect = "Allow"
-        Condition = {
-          StringLike = {
-            "${module.eks.cluster_oidc_issuer_url}:sub" = "system:serviceaccount:kube-system:efs-csi-*",
-            "${module.eks.cluster_oidc_issuer_url}:aud" = "sts.amazonaws.com"
-          }
-        }
-      },
-    ]
-  })
-}
-
-resource "aws_iam_role_policy_attachment" "efs_csi_driver_policy_attachment" {
-  role       = aws_iam_role.efs_csi_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
-}
-
-data "aws_caller_identity" "current" {}
-\end{lstlisting}
 
 To deploy these resources, the following commands are executed:
 \begin{itemize}
@@ -452,7 +369,7 @@ To deploy these resources, the following commands are executed:
     \item \texttt{terraform apply}: Applies the changes to the infrastructure and deploys the resources.
 \end{itemize}
 
-\subsubsection{Deploying EFS and Attaching to Models}
+\subsection{Deploying EFS and Attaching to Models}
 To store the ASR models, an Elastic File System (EFS) can be deployed. The following steps outline the deployment process:
 \begin{enumerate}
     \item Create an EC2 instance in a public subnet.
@@ -462,40 +379,6 @@ To store the ASR models, an Elastic File System (EFS) can be deployed. The follo
 
 
 Code \ref{lst:ec2_setup} shows the Terraform configuration for setting up an EC2 instance and an SSH key. 
-
-\begin{lstlisting}[caption={Terraform Configuration for Setting Up EC2 Instance}, label={lst:ec2_setup}]
-# Generate new private key
-resource "tls_private_key" "my_key" {
-  algorithm = "RSA"
-}
-
-# Generate a key-pair with above key
-resource "aws_key_pair" "key-pair" {
-  key_name   = "${var.owner}-key"
-  public_key = tls_private_key.my_key.public_key_openssh
-}
-
-# Saving Key Pair for ssh login for Client if needed
-resource "null_resource" "save_key_pair" {
-  provisioner "local-exec" {
-    command = "echo  '${tls_private_key.my_key.private_key_pem}' > '${aws_key_pair.key-pair.key_name}'.pem && chmod 400 '${aws_key_pair.key-pair.key_name}'.pem"
-  }
-}
-
-# create ec2 resource for mounting model
-resource "aws_instance" "ec2-instance" {
-  ami                         = "ami-0e48a8a6b7dc1d30b"
-  instance_type               = "t2.micro"
-  key_name                    = aws_key_pair.key-pair.key_name
-  subnet_id                   = var.public_subnet_ids[0]
-  vpc_security_group_ids      = [var.security_group_nfs_ssh]
-  associate_public_ip_address = true
-
-  tags = {
-    Name = "${var.owner}-model-transfer"
-  }
-}
-\end{lstlisting}
 
 After the EC2 instance is created, follow these steps to transfer the model files:
 
@@ -509,18 +392,18 @@ On the EC2 instance:
     \item \texttt{sudo mkdir -p /mnt/efs}: Create a directory to mount the EFS volume.
     \item 
         \begin{sloppypar}
-            \texttt{sudo mount -t nfs4 -o nfsvers=4.1 <mount-target address>:/ /mnt/efs}: Mount the EFS volume to the directory.
+        \texttt{sudo mount -t nfs4 -o nfsvers=4.1 <mount-target address>:/ /mnt/efs}: Mount the EFS volume to the directory.
         \end{sloppypar}
     \item \texttt{sudo chmod go+rw /mnt/efs}: Update the permissions of the directory to allow read and write access.
 
     \item 
         \begin{sloppypar}
-            \texttt{scp -r -i "<private key name>.pem" \\<model-directory>@<public-ip>:/mnt/efs}: Copy the model files to the EFS volume.
+        \texttt{scp -r -i "<private key name>.pem"   \\<model-directory>@<public-ip>:/mnt/efs}: Copy the model files to the EFS volume.
         \end{sloppypar}
 \end{enumerate}
 
-\subsection{Kubernetes Cluster}
-kubectl is the primary command-line tool for interacting with Kubernetes clusters. It allows users to create, update, and manage resources within the cluster. Below are some commonly used \texttt{kubectl} commands:
+\section{Kubernetes Cluster}
+\texttt{kubectl} is the primary command-line tool for interacting with Kubernetes clusters. It allows users to create, update, and manage resources within the cluster. Below are some commonly used \texttt{kubectl} commands:
 
 \begin{itemize}
     \item \texttt{kubectl apply -f <file>}: Applies the configuration defined in the YAML file to the cluster.
@@ -538,7 +421,7 @@ aws eks --region <region> update-kubeconfig --name <cluster-name>
 
 Once the kubeconfig file is updated, kubectl can be used to interact with the EKS cluster.
 
-\subsubsection{Deploying ASR System Components}
+\subsection{Deploying ASR System Components}
 The ASR system can be deployed to the Kubernetes cluster using the Kubernetes manifest files provided in the repository. The deployment process can be initiated with the following command:
 \begin{verbatim}
 kubectl apply -f <file>
@@ -552,10 +435,99 @@ The deployment includes the following components:
     \item \textbf{Persistent Volume and Persistent Volume Claim:}  Defines the storage requirements for the EFS  volume used by the ASR system.
 \end{itemize}
 
+\subsection{Horizontal Pod Autoscaler (HPA)}
+The Kubernetes Horizontal Pod Autoscaler (HPA) automatically adjusts the number of pods in a deployment based on resource utilization, such as CPU or memory, or custom metrics. This ensures efficient resource allocation and improved system responsiveness under varying workloads.
+
+The HPA configuration is defined in a YAML file and applied to the cluster using:
+\begin{verbatim}
+kubectl apply -f <file>
+\end{verbatim}
+
+Code \ref{lst:HPA_live_processing_server} provides an example HPA configuration for the Live Processing Server.
 
 
-\subsubsection{Helm Charts}
-\textit{To include Helm charts to deploy RabbitMQ and Redis clusters.}
+\begin{lstlisting}[language=Kubernetes, caption={Horizontal Pod Autoscaler for Live Processing Server}, label={lst:HPA_live_processing_server}]
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: live-processing-server-hpa
+  namespace: asr-sdk
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: live-processing-server-deployment
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 75
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 75
+\end{lstlisting}
+
+This configuration defines the following:
+\begin{itemize}
+    \item \textbf{Target Deployment:} The HPA scales the \texttt{live-processing-server-deployment}.
+    \item \textbf{Replica Scaling Range:} The deployment is maintained between a minimum of 2 and a maximum of 10 replicas.
+    \item \textbf{Scaling Metrics:} The autoscaler monitors CPU and memory utilization, scaling up or down when usage exceeds or falls below 75\%.
+\end{itemize}
+\subsubsection{Testing the HPA}
+To verify the HPA's behavior under load, a benchmarking tool such as \texttt{wrk} can be used to simulate traffic.
+
+The following command generates a load test by sending 25 concurrent WebSocket requests for 30 seconds using 12 threads:
+\begin{verbatim}
+  wrk -t12 -c25 -d30s ws://<live-processing-service-url>/client/ws/speech
+\end{verbatim}
+
+To monitor the HPA scaling behavior in real-time, use:
+\begin{verbatim}
+  kubectl get hpa -n asr-sdk live-processing-server-hpa --watch
+\end{verbatim}
+
+As shown in Figure \ref{fig:hpa_cli}, after 30 seconds of sustained load, the CPU utilization surpasses the 75\% threshold, triggering the HPA to scale the deployment from 2 to 7 replicas.
+
+\begin{figure}[!h]
+  \centering
+  \includegraphics[width=\textwidth]{figures/hpa_cli.png}
+  \caption{Testing of HPA with wrk}
+  \label{fig:hpa_cli}
+\end{figure}
+
+\subsection{Helm Charts}
+Helm charts were used to deploy the RabbitMQ and Redis clusters. The charts used were from Bitnami, which provides pre-configured Helm charts for popular applications, including RabbitMQ and Redis.
+
+Users can customize their deployments by specifying configuration parameters in a \texttt{values.yaml} file. This file allows for modifications such as the number of replicas, resource limits, and persistence settings. The full list of configurable values is available in the official Helm chart repository.
+
+
+The following commands deploy the Redis and RabbitMQ clusters using Helm:
+\begin{verbatim}
+  # Deploy Redis cluster
+  helm install redis oci://registry-1.docker.io/bitnamicharts/redis \
+    -f values.yaml --namespace asr-sdk --create-namespace
+  
+  # Deploy RabbitMQ cluster
+  helm install rabbitmq oci://registry-1.docker.io/bitnamicharts/rabbitmq \
+    -f values.yaml --namespace asr-sdk --create-namespace
+\end{verbatim}
+
+To ensure data persistence for RabbitMQ and Redis, Amazon Elastic Block Store (EBS) can be configured as the persistent storage backend.
+\begin{enumerate}
+  \item Install the EBS CSI driver on the EKS cluster if it is not already installed.
+  \item Annotate the EBS CSI service account with the IAM role created for EBS via Terraform using the following command:
+  \begin{verbatim} 
+  kubectl annotate serviceaccount ebs-csi-controller-sa -n kube-system \
+    eks.amazonaws.com/role-arn=<ARN_of_EBS_CSI_Driver_Role>
+  \end{verbatim}
+\end{enumerate}
 
 \subsection{Kubernetes Dashboard}
 To effectively visualize the Kubernetes cluster and monitor deployed resources, the Kubernetes Dashboard provides a graphical interface for managing the cluster, inspecting workloads, and troubleshooting issues. The dashboard allows users to view real-time metrics, manage deployments, and analyze resource utilization. Figure \ref{fig:kubernetes_dashboard} illustrates an example of the Kubernetes Dashboard.
@@ -570,10 +542,10 @@ To effectively visualize the Kubernetes cluster and monitor deployed resources, 
 The Kubernetes Dashboard can be installed using Helm with the following commands:
 
 \begin{verbatim}
-helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
-helm upgrade --install kubernetes-dashboard \
-  kubernetes-dashboard/kubernetes-dashboard \
-  --create-namespace --namespace kubernetes-dashboard
+  helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+  helm upgrade --install kubernetes-dashboard \
+    kubernetes-dashboard/kubernetes-dashboard \
+    --create-namespace --namespace kubernetes-dashboard
 \end{verbatim}
 
 \subsubsection{Configuring Access and Permissions}
@@ -585,43 +557,14 @@ Before accessing the dashboard, a set of required resources must be configured, 
   \item \textbf{Secret Token:} Authenticates the dashboard.
 \end{itemize}
 
-The following Kubernetes configuration file (Code \ref{lst:k8s_dashboard_dependencies}) sets up these dependencies:
+The Kubernetes configuration file in Code \ref{lst:k8s_dashboard_dependencies} sets up these dependencies.
 
-\begin{lstlisting}[language=Kubernetes, caption={Kubernetes Configuration for Setting Up Dashboard Dependencies}, label={lst:k8s_dashboard_dependencies}]
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: admin-user
-  namespace: kubernetes-dashboard
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: admin-user
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: cluster-admin
-subjects:
-  - kind: ServiceAccount
-    name: admin-user
-    namespace: kubernetes-dashboard
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: admin-user
-  namespace: kubernetes-dashboard
-  annotations:
-    kubernetes.io/service-account.name: "admin-user"
-type: kubernetes.io/service-account-token
-\end{lstlisting}
 
 \subsubsection{Accessing the Dashboard}
 Once the dashboard and necessary permissions are set up, port forwarding can be used to expose the dashboard locally:
 \begin{verbatim}
-kubectl -n kubernetes-dashboard port-forward \
-  svc/kubernetes-dashboard-kong-proxy 8443:443
+  kubectl -n kubernetes-dashboard port-forward \
+    svc/kubernetes-dashboard-kong-proxy 8443:443
 \end{verbatim}
 
 After running this command, open a web browser and navigate to: \texttt{https://localhost:8443}.
@@ -629,5 +572,5 @@ After running this command, open a web browser and navigate to: \texttt{https://
 \subsubsection{Generating Token}
 To log in to the dashboard, generate an authentication token using:
 \begin{verbatim}
-kubectl -n kubernetes-dashboard create token admin-user
+  kubectl -n kubernetes-dashboard create token admin-user
 \end{verbatim}

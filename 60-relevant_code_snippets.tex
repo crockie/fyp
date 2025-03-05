@@ -1,0 +1,200 @@
+\begin{appendices}
+\chapter{Relevant Code Snippets} \label{chapter:appendix}
+
+\begin{lstlisting}[caption={Example Code Documentation}, label={lst:code_documentation}]
+def _start_task(self, task_queue, instance_id=1):
+    """
+    Start the task and set the state of the worker to BUSY.
+
+    Args:
+        task_queue (str): Task queue to be processed by the worker.
+        instance_id (int): Instance ID of the task.
+    """
+\end{lstlisting}
+
+\begin{lstlisting}[language=Proto3, caption={Worker Manager Server gRPC Proto File}, label={lst:worker_manager_server}]
+syntax = "proto3";
+
+package worker_manager;
+
+service WorkerManagerService {
+    rpc AllocateWorker (AllocateWorkerRequest) returns (AllocateWorkerResponse);
+    rpc SendHeartbeat (SendHeartbeatRequest) returns (SendHeartbeatResponse);
+}
+
+message AllocateWorkerRequest {
+    string model_name = 1;
+    string task_queue = 2;
+}
+
+message AllocateWorkerResponse {
+    bool success = 1;
+    string worker_name = 2;
+    string message = 3;
+}
+
+message SendHeartbeatRequest {
+    string worker_name = 1;
+    string model_name = 2;
+    bool final = 3;
+}
+
+message SendHeartbeatResponse {
+    bool success = 1;
+    string message = 2;
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=Terraform, caption={Terraform Plan Output}, label={lst:terraform_plan}]
+Terraform used the selected providers to generate the following execution plan. Resource actions are indicated with the following symbols:
++ create
+<= read (data resources)
+
+Terraform will perform the following actions:
+
+    # module.eks.aws_eks_addon.efs_csi_driver will be created
+    + resource "aws_eks_addon" "efs_csi_driver" {
+        + addon_name           = "aws-efs-csi-driver"
+        + addon_version        = "v2.1.3-eksbuild.1"
+        + arn                  = (known after apply)
+        + cluster_name         = "ed-fyp-eks-cluster"
+        + configuration_values = (known after apply)
+        + created_at           = (known after apply)
+        + id                   = (known after apply)
+        + modified_at          = (known after apply)
+        + tags_all             = {
+            + "Environment" = "Development"
+            + "Owner"       = "Edmund"
+            + "Terraform"   = "True"
+        }
+    
+... (output truncated) ...
+
+Plan: 37 to add, 0 to change, 0 to destroy.
+    
+\end{lstlisting}
+
+\begin{lstlisting}[language=Terraform, caption={Terraform Configuration for Creating EFS CSI Driver}, label={lst:efs_csi_driver},breaklines=true]
+module "eks" {
+    source  = "terraform-aws-modules/eks/aws"
+    version = "~> 20.31"
+
+    cluster_name    = var.cluster_name
+    cluster_version = "1.31"
+
+    vpc_id     = var.vpc_id
+    subnet_ids = var.subnet_ids
+
+    cluster_endpoint_private_access          = true
+    cluster_endpoint_public_access           = true
+    enable_cluster_creator_admin_permissions = true
+
+    cluster_compute_config = {
+    enabled    = true
+    node_pools = ["general-purpose"]
+    }
+}
+
+resource "aws_eks_addon" "efs_csi_driver" {
+    cluster_name  = module.eks.cluster_name
+    addon_name    = "aws-efs-csi-driver"
+    addon_version = "v2.1.3-eksbuild.1"
+}
+
+resource "aws_iam_role" "efs_csi_role" {
+    name = "EKS_EFS_CSI_DriverRole"
+    assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+        {
+        Action = [
+            "sts:AssumeRoleWithWebIdentity",
+        ]
+        Principal = {
+            Federated = "arn:aws:iam::${data.aws_caller_identity.current.account_id}: oidc-provider/${module.eks.cluster_oidc_issuer_url}"
+        }
+        Effect = "Allow"
+        Condition = {
+            StringLike = {
+            "${module.eks.cluster_oidc_issuer_url}:sub" = "system:serviceaccount:kube-system:efs-csi-*",
+            "${module.eks.cluster_oidc_issuer_url}:aud" = "sts.amazonaws.com"
+            }
+        }
+        },
+    ]
+    })
+}
+
+resource "aws_iam_role_policy_attachment" "efs_csi_driver_policy_attachment" {
+    role       = aws_iam_role.efs_csi_role.name
+    policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonEFSCSIDriverPolicy"
+}
+
+data "aws_caller_identity" "current" {}
+\end{lstlisting}
+
+\begin{lstlisting}[caption={Terraform Configuration for Setting Up EC2 Instance}, label={lst:ec2_setup}]
+# Generate new private key
+resource "tls_private_key" "my_key" {
+    algorithm = "RSA"
+}
+
+# Generate a key-pair with above key
+resource "aws_key_pair" "key-pair" {
+    key_name   = "${var.owner}-key"
+    public_key = tls_private_key.my_key.public_key_openssh
+}
+
+# Saving Key Pair for ssh login for Client if needed
+resource "null_resource" "save_key_pair" {
+    provisioner "local-exec" {
+    command = "echo  '${tls_private_key.my_key.private_key_pem}' > '${aws_key_pair.key-pair.key_name}'.pem && chmod 400 '${aws_key_pair.key-pair.key_name}'.pem"
+    }
+}
+
+# create ec2 resource for mounting model
+resource "aws_instance" "ec2-instance" {
+    ami                         = "ami-0e48a8a6b7dc1d30b"
+    instance_type               = "t2.micro"
+    key_name                    = aws_key_pair.key-pair.key_name
+    subnet_id                   = var.public_subnet_ids[0]
+    vpc_security_group_ids      = [var.security_group_nfs_ssh]
+    associate_public_ip_address = true
+
+    tags = {
+    Name = "${var.owner}-model-transfer"
+    }
+}
+\end{lstlisting}
+
+\begin{lstlisting}[language=Kubernetes, caption={Kubernetes Configuration for Setting Up Dashboard Dependencies}, label={lst:k8s_dashboard_dependencies}]
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+    name: admin-user
+    namespace: kubernetes-dashboard
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+    name: admin-user
+roleRef:
+    apiGroup: rbac.authorization.k8s.io
+    kind: ClusterRole
+    name: cluster-admin
+subjects:
+    - kind: ServiceAccount
+    name: admin-user
+    namespace: kubernetes-dashboard
+---
+apiVersion: v1
+kind: Secret
+metadata:
+    name: admin-user
+    namespace: kubernetes-dashboard
+    annotations:
+    kubernetes.io/service-account.name: "admin-user"
+type: kubernetes.io/service-account-token
+\end{lstlisting}
+
+\end{appendices}
