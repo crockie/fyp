@@ -156,7 +156,17 @@ async def allocate_worker_from_worker_manger(self, model_name, task_queue):
 
 
 \section{Worker}
-To do
+The primary function of the Worker is to process audio data using the specified ASR model and return transcription results.  
+
+Each Worker loads an ASR model developed by the NTU Speech Lab, which is based on the Kaldi ASR toolkit \cite{kaldi}. The model is loaded into memory at startup, enabling low-latency transcription of incoming audio data.
+
+\subsection{Audio Processing}
+Once the Worker Manager assigns an idle Worker to a task, the Worker retrieves the audio data from the task queue in RabbitMQ. It then processes the audio using the ASR model and publishes the transcription results to the result queue in RabbitMQ.  
+
+To facilitate fault tolerance, the Worker updates its state in Redis when processing a task. It marks itself as \texttt{busy} and records the assigned task. This allows the Worker Manager to track active tasks and reassign them if a Worker fails.
+
+\subsection{Heartbeat Monitoring}
+To enable health monitoring, the Worker sends periodic heartbeat signals to the Worker Manager. These heartbeats allow the Worker Manager to detect failures and reallocate tasks accordingly. Further details on this mechanism are provided in Subsection \ref{subsection:worker_manager_monitor}.
 
 \section{Worker Manager} \label{section:worker_manager}
 The Worker Manager is responsible for managing and coordinating worker pods to ensure efficient task processing and fault tolerance. Its core responsibilities include:
@@ -182,7 +192,7 @@ The Worker Manager Server provides two main gRPC endpoints (Code \ref{lst:worker
 \end{itemize}
 
 
-\subsection{Worker Manager Monitor}
+\subsection{Worker Manager Monitor} \label{subsection:worker_manager_monitor}
 The Worker Manager Monitor oversees worker health and task reallocation. It listens for heartbeats and updates worker status in Redis. If a worker fails to send a heartbeat within a predefined timeout, it is considered unavailable, and its task is reassigned. 
 
 Code \ref{lst:worker_fault_tolerance} illustrates the fault tolerance mechanism.
@@ -248,7 +258,7 @@ To simulate a worker failure, worker pod processing the audio data can be delibr
 
 Figure \ref{fig:worker_fault_tolerance} illustrates the Worker Manager detecting that the worker pod \texttt{worker-\allowbreak stateful-english-0} has failed to send a heartbeat. As a result, it reallocates the task to an available idle worker, \texttt{worker-stateful-english-1}, ensuring uninterrupted processing.
 
-\begin{figure}[ht]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{figures/worker_fault_tolerance.png}
   \caption{Worker Fault Tolerance Testing}
@@ -256,7 +266,7 @@ Figure \ref{fig:worker_fault_tolerance} illustrates the Worker Manager detecting
 \end{figure}
 
 \subsubsection{Worker Scaling Policy}
-The Worker Manager dynamically scales worker pods based on system load. A configurable threshold (\texttt{SCALING\_TARGET}) defines the minimum number of idle pods required at any time. The Worker Manager periodically evaluates worker utilization and adjusts the number of replicas accordingly. 
+The Worker Manager dynamically scales worker pods based on system load. A configurable threshold, \texttt{SCALING\_TARGET}, defines the minimum number of idle pods required at any time. The Worker Manager periodically evaluates worker utilization and adjusts the number of replicas accordingly. 
 
 Code \ref{lst:worker_scaling} shows the worker scaling mechanism.
 
@@ -296,8 +306,7 @@ To validate the worker scaling policy, the system was tested under varying workl
 
 Figure \ref{fig:worker_scaling_up_down} shows the logs of the Worker Manager, illustrating the dynamic scaling behavior of the Worker Manager. When a transcription task starts and an available worker is assigned to process it, the number of idle pods drops below the \texttt{SCALING\_TARGET}, triggering an automatic scale-up. Conversely, once the task is completed and the worker becomes idle again, the Worker Manager scales down the replicas to optimize resource usage.
 
-
-\begin{figure}[ht]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{figures/worker_scaling_up_down.png}
   \caption{Worker Scaling Up and Down}
