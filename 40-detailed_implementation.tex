@@ -185,19 +185,19 @@ To enable health monitoring, the Worker sends periodic heartbeat signals to the 
 
 \section{Worker Manager} \label{section:worker_manager}
 The Worker Manager is responsible for managing and coordinating worker pods to ensure efficient task processing and fault tolerance. Its core responsibilities include:
-\begin{enumerate}
+\begin{itemize}
   \item \textbf{Worker Allocation:} Assigning idle workers to process incoming audio data.
   \item \textbf{Health Monitoring:} Tracking worker health through periodic heartbeats.
   \item \textbf{Task Reassignment:} Detecting worker failures and reallocating tasks to maintain continuity.
   \item \textbf{Scaling Policy:} Dynamically adjusting the number of worker pods based on system load.
-\end{enumerate}
+\end{itemize}
 
 
 The Worker Manager consists of two primary components:
-\begin{itemize}
+\begin{enumerate}
     \item \textbf{Worker Manager Server:} Exposes gRPC APIs for worker allocation and heartbeat monitoring.
     \item \textbf{Worker Manager Monitor:} Detects worker failures, reallocates tasks, and enforces scaling policies.
-\end{itemize}
+\end{enumerate}
 
 \subsection{Worker Manager Server}
 

@@ -1,4 +1,35 @@
 \chapter{Conclusion and Future Work} \label{chapter:conclusion_and_future_work}
 
-\textit{To be done.}
+\section{Conclusion}
 
+This project has significantly improved the scalability, availability, and fault tolerance of the ASR system by transitioning to a decoupled architecture. By integrating RabbitMQ, the system effectively separates the Master and Worker Pods, enabling independent scaling and reducing interdependencies. This architectural shift enhances flexibility and resilience, ensuring that the system can efficiently handle varying workloads.  
+
+A dynamic and predictive scaling policy was implemented, allowing the system to adjust worker instances in real time based on workload demands. This optimization ensures efficient resource utilization while maintaining low-latency processing, improving overall system responsiveness.  
+
+To further enhance reliability, fault recovery mechanisms were introduced to minimize service disruptions. The system can now quickly detect and recover from worker failures, ensuring that transcription tasks continue without interruptions. Additionally, by externalizing application state management to Redis, the system achieves greater resilience against crashes and failures. This stateless design simplifies scaling and ensures that no transcription tasks are lost during failures.  
+
+The deployment of the ASR system on Kubernetes clusters hosted on AWS has streamlined system management, making it easier to scale and maintain. Furthermore, leveraging infrastructure-as-code tools such as Terraform has improved deployment reproducibility, reducing the risk of configuration drift and simplifying operational tasks.  
+
+\section{Future Work}
+
+While this project has introduced significant improvements, several areas remain for further exploration to enhance system robustness and efficiency.
+
+\subsection{Deploying Redis in Sentinel Mode}
+
+A potential enhancement is running Redis in Sentinel mode to provide high availability and automatic failover. Using the Helm chart provided by Bitnami, Redis can be deployed with Sentinel for automated leader election and failover handling, ensuring continuous availability even in the event of node failures.  
+
+To support this transition, system components interacting with Redis will require modifications to accommodate Sentinel’s connection management and failover mechanisms. Additionally, deployment scripts and infrastructure configurations will need to be updated accordingly.  
+
+\subsection{Conducting Chaos Engineering Experiments}
+
+To further validate system resilience, chaos engineering experiments can be introduced to simulate real-world failure scenarios. By deliberately inducing failures such as network partitions, pod crashes, or Redis downtime, the system’s fault tolerance and recovery mechanisms can be rigorously tested.  
+
+These experiments will help uncover hidden vulnerabilities and enable proactive improvements to enhance system reliability. Implementing controlled chaos testing will ensure that the system remains highly available and robust under unexpected failure conditions.  
+
+\subsection{Enhancing Monitoring and Observability}
+
+Effective monitoring and observability are critical for maintaining a stable production environment. While the system currently includes basic logging and monitoring, further improvements can be made by integrating advanced observability tools.  
+
+Incorporating Prometheus and Grafana will enable real-time tracking of key performance metrics such as CPU and memory usage, request latency, and error rates. These insights can help identify bottlenecks, optimize resource allocation, and troubleshoot issues more efficiently. Additionally, setting up automated alerts and notifications will allow for proactive incident response, minimizing potential downtime.  
+
+By implementing these future enhancements, the ASR system can achieve even greater reliability, scalability, and operational efficiency, ensuring seamless transcription services under varying conditions.

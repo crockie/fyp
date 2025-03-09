@@ -2,15 +2,15 @@
 \section{Previous Architecture}
 The previous architecture of the ASR system, as illustrated in Figure \ref{fig:previous_architecture}, was deployed on a Kubernetes cluster hosted on AWS.
 
-Transcription requests were routed through an NGINX Ingress Controller, which forwarded them to a Master Pod responsible for managing transcription tasks. Upon receiving a request, the Master Pod authenticated it and, if a worker Pod was available, initiated a WebSocket connection. The audio data was then transmitted to the worker Pod for transcription.
+Transcription requests were routed through an NGINX Ingress Controller, which forwarded them to a master pod responsible for managing transcription tasks. Upon receiving a request, the master pod authenticated it and, if a worker pod was available, initiated a WebSocket connection. The audio data was then transmitted to the worker pod for transcription.
 
-Each Worker Pod was associated with a model attached via a Persistent Volume Claim (PVC). After processing, the Worker Pod sent the transcription results back to the Master Pod, which then forwarded them to the client.
+Each worker pod was associated with a model attached via a Persistent Volume Claim (PVC). After processing, the worker pod sent the transcription results back to the master pod, which then forwarded them to the client.
 
 \section{Challenges and Design Evolution}
-Based on the evaluation of the previous architecture in Section  \ref{section:challenges}, several challenges were identified. The new design addresses these by adopting a more decoupled, scalable, and fault-tolerant approach.
+Based on the evaluation of the previous architecture in Section \ref{section:challenges}, several challenges were identified. The new design addresses these by adopting a more decoupled, scalable, and fault-tolerant approach.
 
 \subsection{Decoupling Master and Worker Pods}
-The reliance on synchronous WebSocket communication between the Master and Worker Pods introduced significant challenges in fault tolerance and scaling. Any failure in either component would disrupt ongoing transcription tasks. Additionally, scaling Worker Pods dynamically was constrained direct communication.
+The reliance on synchronous WebSocket communication between the master and worker pods introduced significant challenges in fault tolerance and scaling. Any failure in either component would disrupt ongoing transcription tasks Additionally, scaling worker pods dynamically was constrained direct communication.
 
 \subsubsection{Proposed Solution: Asynchronous Messaging}
 To enhance scalability and resilience, the new architecture adopts an message queue approach using RabbitMQ (Figure \ref{fig:decouple}).
@@ -21,12 +21,12 @@ To enhance scalability and resilience, the new architecture adopts an message qu
     \label{fig:decouple}
 \end{figure}
 
-In the new design, the Master Pod publishes transcription tasks to a RabbitMQ task queue. Worker Pods asynchronously consume tasks, process the audio, and publish results to a results queue. The Master Pod retrieves transcription results and sends them back to the client.
+In the new design, the master pod publishes transcription tasks to a RabbitMQ task queue. Worker pods asynchronously consume tasks, process the audio, and publish results to a results queue. The master pod retrieves transcription results and sends them back to the client.
 
 This design eliminates direct dependencies between components, allowing independent scaling and improved fault tolerance. RabbitMQ was chosen over alternatives like Kafka due to the reasons mentioned in Subsection \ref{subsection:research_gap}.
 
 \subsection{Enhancing State Management and Fault Tolerance}
-Previously, the Worker Pods stored audio data in an in-memory queue. If a worker pod crashed, any buffered data was lost, requiring clients to retransmit. This dependency on volatile storage complicated recovery and degraded system reliability.
+Previously, the worker pods stored audio data in an in-memory queue. If a worker pod crashed, any buffered data was lost, requiring clients to retransmit. This dependency on volatile storage complicated recovery and degraded system reliability.
 
 \subsubsection{Proposed Solution: Redis for State Persistence}
 To mitigate data loss and improve fault tolerance, the application state is now stored in Redis, ensuring that if a service fails, it can recover essential state information. Additionally, RabbitMQ’s message durability ensures that queued transcription tasks are not lost if a worker crashes. If a worker pod fails mid-transcription, a new worker can pick up the task from the queue without requiring client intervention. This redesign significantly enhances fault tolerance and ensures a seamless recovery mechanism.

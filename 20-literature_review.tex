@@ -1,28 +1,70 @@
 \chapter{Literature Review} \label{chapter:literature_review}
-The development of reliable and scalable Automatic Speech Recognition (ASR) systems requires an understanding of modern distributed systems technologies and architectural design. This literature review examines the technologies and approaches relevant to enhancing ASR system scalability and resilience. The review begins with previous work on the system, followed by an analysis of key technologies in distributed systems, containerization, message queues, cloud infrastructure, and chaos engineering.
-
-\section{Previous Work}
-Putra \cite{putra} had worked on the same ASR system and his project effectively highlights the advantages of transitioning from a tightly coupled ASR system to a decoupled microservices architecture using Apache Kafka. The use of Kubernetes and other modern cloud-native tools such as Kyverno, Falco, and Knative demonstrates a robust effort to address scalability, reliability, and security challenges in ASR systems. The project discusses the integration of Kafka as the message broker to decouple the master and worker components, ensuring fault tolerance and enabling the system to recover from worker crashes without losing data.
-
-\subsection{Research Gap}
-A significant research gap exists in the implementation's choice of message broker technology. The selection of Kafka for the ASR system raises concerns regarding its fit for scenarios requiring high data accuracy and context preservation. While Kafka's high throughput and durability are valuable for many systems, ASR workflows are fundamentally bottlenecked by the processing speed of workers, not the message broker. This mismatch between technology choice and system requirements suggests that RabbitMQ would be a more suitable alternative due to its task-oriented features and built-in support for state-dependent processing, which better aligns with the sequential nature of speech processing tasks.
-
-Furthermore, while Putra’s work \cite{putra} demonstrated promising results, a practical limitation emerged as the research team no longer has access to his project's codebase. This circumstance has created an opportunity to revisit the system's architecture with fresh perspective, particularly in the areas of component decoupling and scaling mechanisms. The current project therefore aims to not only address the technological fit of the message broker but also to establish a well-documented implementation that can be maintained and evolved by the research team.
-
+The development of reliable and scalable Automatic Speech Recognition (ASR) systems requires an understanding of modern distributed systems technologies and architectural design. This literature review examines the technologies and approaches relevant to enhancing ASR system scalability and resilience. The review begins with an introduction to the key technologies in distributed systems, containerization cloud infrastructure, chaos enginnering and message queues. It then discussed the previous work on the ASR system and explore the research gap.
 
 \section{Distributed Systems Architecture}
 \subsection{Evolution of Microservices}
 The transition from monolithic to microservices architecture represents a fundamental shift in distributed systems design. Newman \cite{newman} defines microservices as small, autonomous services that work together, focusing on modularity and independent deployability. This architectural style has gained prominence due to its ability to support scalability, maintainability, and team autonomy \cite{microservices_benefits}. In the context of ASR systems, microservices architecture enables independent scaling of components and improved fault isolation.
 
 \subsection{gRPC in Modern Applications}
-gRPC is a high-performance Remote Procedure Call (RPC) \cite{grpc}, which led to a significant advancement in service-to-service communication. Niswar et al. \cite{grpc_comparison} conducted performance analyses showing that gRPC outperforms REST APIs and GraphQL in terms of response time for fetching both flat and nested data, as well as CPU utilisation. It utilises Protocol Buffers which provide a language-agnostic interface definition \cite{protocol_buffers}, allowing services written in different programming languages to communicate efficiently. This is crucial in microservices architectures where different teams might develop services using different technologies. These features make gRPC particularly suitable for ASR systems where reliable, high-performance communication between components is essential.
+gRPC is a high-performance Remote Procedure Call (RPC) framework \cite{grpc} that has significantly advanced service-to-service communication. It leverages Protocol Buffers, a language-agnostic interface definition language \cite{protocol_buffers}, enabling seamless communication between services written in different programming languages. This is particularly beneficial in microservices architectures, where different teams may develop services using diverse technology stacks. 
+
+Performance analyses by Niswar et al. \cite{grpc_comparison} demonstrate that gRPC outperforms REST APIs and GraphQL in response time for retrieving both flat and nested data while also exhibiting lower CPU utilization. These advantages make gRPC particularly well-suited for ASR systems, where efficient, low-latency communication between components is crucial.
+
+\subsubsection{gRPC Architecture}
+
+Figure \ref{fig:grpc} illustrates the gRPC architecture, which consists of the following key components:
+\begin{enumerate}
+    \item \textbf{Client}: The application that initiates gRPC calls.
+    \item \textbf{Server}: The application that implements the gRPC service and processes incoming requests.
+    \item \textbf{Protocol Buffers}: A language-agnostic schema used to define services and message structures.
+    \item \textbf{gRPC Stub}: The auto-generated client and server code derived from Protocol Buffer definitions.
+    \item \textbf{HTTP/2}: The transport protocol used to facilitate efficient and multiplexed communication.
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figures/gRPC_architecture.drawio.png}
+    \caption{gRPC Architecture}
+    \label{fig:grpc}
+\end{figure}
+
+\subsubsection{gRPC Communication Process}
+The process begins with defining the service and message types using Protocol Buffers \cite{protocol_buffers_overview}. The \texttt{protoc} compiler then generates the client and server code. The client application uses the generated client stub to make a gRPC call \cite{grpc_api}, sending a request over HTTP/2 \cite{grpc_http2}. The server application uses the generated server stub to handle the gRPC call, processes the request, and sends back a response  over HTTP/2 \cite{grpc_api}.
+
 
 \section{Containerization}
 \subsection{Docker}
 Docker is a service that leverages on operating system level virtualisation to package software into containers \cite{docker_definition}. Bernstein \cite{Bernstein} explains how Docker containers package applications with their dependencies. This consistency is crucial for ASR systems, where complex model and service dependencies must be managed effectively.
 
 \subsection{Kubernetes}
-Kubernetes is a container orchestration tool used to automate the deployment and management of containers \cite{k8s_definition}. Burns et al. \cite{k8s_architecture} detail its architecture and ability to manage containerized applications at scale. For ASR systems, Kubernetes provides essential features such as automatic scaling, self-healing, and rolling updates \cite{k8s_features}, which are crucial for maintaining service reliability.
+Kubernetes is a container orchestration tool used to automate the deployment and management of containers \cite{k8s_definition}. 
+
+A Kubernetes cluster (Figure \ref{fig:kubernetes_architecture}) contains the following key components \cite{k8s_cluster}:
+\begin{enumerate}
+    \item \textbf{Control Plane}: Manages the cluster and schedules workloads.
+    \begin{itemize}
+        \item \textbf{API Server}: Exposes the Kubernetes API.
+        \item \textbf{etcd}: Key-value store for cluster data.
+        \item \textbf{Scheduler}: Assigns workloads to nodes.
+        \item \textbf{Controller Manager}: Ensures the desired state of the cluster.
+        \item \textbf{Cloud Controller Manager}: Integrates with cloud provider APIs.
+    \end{itemize}
+    \item \textbf{Worker Nodes}: The compute nodes that run containerized applications.
+    \begin{itemize}
+        \item \textbf{Kubelet}: Agent that manages the node and communicates with the control plane.
+        \item \textbf{Container Runtime}: Software that runs containers.
+        \item \textbf{Kube Proxy}: Manages network connectivity.
+    \end{itemize}
+\end{enumerate}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{figures/kubernetes_architecture.png}
+    \caption{Kubernetes Cluster Architecture \cite{k8s_cluster}}
+    \label{fig:kubernetes_architecture}
+\end{figure}
+
+Burns et al. \cite{k8s_architecture} detail its architecture and ability to manage containerized applications at scale. For ASR systems, Kubernetes provides essential features such as automatic scaling, self-healing, and rolling updates \cite{k8s_features}, which are crucial for maintaining service reliability.
 
 \subsection{Helm}
 Helm is a package manager for Kubernetes applications \cite{helm_definition}. Helm utilises Charts, as reusable packages that contains pre-configured Kubernetes resources \cite{helm_charts}, making complex application deployments more manageable. These Charts function as templates that can be customized through value files \cite{helm_definition}, enabling environment-specific configurations while maintaining consistency in the underlying architecture.
@@ -48,6 +90,9 @@ Amazon ECR is a managed container registry service that simplifies the storage, 
 \subsection{Elastic File System (EFS)}
 Amazon EFS provides scalable, fully managed network file storage for use with AWS cloud services and on-premises resources \cite{efs_definition}. Supporting the Network File System version 4 (NFSv4) protocol \cite{efs_work}, EFS can be accessed concurrently by thousands of compute instances \cite{efs_performance}. It automatically scales throughput when files are added or removed \cite{efs_performance}, making it ideal for applications requiring shared file access across multiple instances or containers.
 
+\subsection{Elastic Block Store (EBS)}
+Amazon EBS is a block storage service that is highly performant and scalable \cite{ebs_definition}. It can be used with EC2 instances to provide persistent storage volumes for EKS \cite{ebs_with_eks}. EBS volumes support various types, including General Purpose SSD (gp2), Provisioned IOPS SSD (io1), and Throughput Optimized HDD (st1) \cite{ebs_types}, enabling users to select the appropriate storage type based on performance requirements.
+
 \section{Infrastructure-as-Code (IaC)}
 IaC is an approach to managing and provisioning computing infrastructure through  configuration files, rather than through physical hardware configuration or interactive configuration tools. This method allows for the automation of infrastructure setup, ensuring consistency and reducing the risk of human error \cite{iac_benefits}.
 
@@ -56,9 +101,21 @@ Terraform is an IaC tool that allows for the declarative management of cloud res
 
 Terraform enables teams to consistently replicate environments across development, testing, and production stages \cite{iac_benefits}, ensuring that infrastructure configurations remain identical at each phase. By maintaining infrastructure as code, teams can version control their changes, enabling peer reviews and the ability to roll back modifications if issues arise. Terraform also manages dependencies between different cloud resources automatically \cite{terraform_dependencies}, reducing the complexity of infrastructure deployment. 
 
+\section{Chaos Engineering}
+Chaos engineering is an approach to deliberately introducing failures to identify weaknesses and improve resilience \cite{chaos_engineering_definition}. By simulating conditions like Kubernetes pod failure, network delay, and node stress \cite{chaos_mesh_feature}, chaos engineering helps us observe system behaviour under stress and improve system robustness \cite{chaos_engineering_definition}. It also enhances incident response time by enabling a better understanding of failure scenarios \cite{chaos_engineering_definition}. Some chaos engineering tools include Chaos Mesh \cite{chaos_mesh_introduction} and AWS Fault Injection Simulator (FIS) \cite{fis_introduction}.
+
 \section{In-memory Data Storage}
 \subsection{Redis}
-Redis is a high-performance, in-memory data store commonly used as a cache and a key-value database \cite{redis_definition}. Redis is fast, and thus well-suited for use in ASR systems, where it can store session information and temporary transcription data. This enables rapid access to frequently used data and facilitates reliable state management, ensuring smooth and responsive system performance.
+Redis is a high-performance, in-memory data store commonly used as a cache and a key-value database \cite{redis_definition}. Redis is fast, and thus well-suited for use in ASR systems, where it can store session information and temporary transcription data. This enables rapid access to frequently used data and facilitates reliable state management, ensuring smooth and responsive system performance. 
+
+To achieve high availability, Redis can be configured with replication to keep it in sync with the primary instance \cite{redis_replication}. Redis Sentinel can be used to monitor Redis instances and perform automatic failover in case of primary instance failure \cite{redis_sentinel}. A group of Redis instances can be configured to be in sentinel mode, which can detect the failure of the primary Redis instance through a quorum and promote a replica to the primary (Figure \ref{fig:redis_sentinel}).
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.8\textwidth]{figures/redis_sentinel.png}
+    \caption{Redis Sentinel}
+    \label{fig:redis_sentinel}
+\end{figure}
 
 \section{Message Queues}
 Message queues enable asynchronous communication between services in distributed systems, providing temporary message storage and reliable delivery mechanisms \cite{queue_definition}. This asynchronous pattern facilitates decoupling of producers and consumers \cite{queue_decouple}, allowing components to scale independently and operate without direct dependencies on each other. 
@@ -90,6 +147,13 @@ The research shows that while Kafka's throughput advantage is significant for hi
 \subsubsection{Message Queue Selection} \label{subsection:research_gap}
 Based on these considerations and supported by Dobbelaere and Esmaili's \cite{kafka_v_rabbitmq} findings, RabbitMQ emerges as the more appropriate choice for ASR systems due to its strong message ordering guarantees, flexible acknowledgement mechanisms, and support for sequential processing requirements. By leveraging RabbitMQ's features, ASR systems can ensure accurate transcription results and maintain the context of speech data for live transcription throughout the processing pipeline.
 
-\section{Chaos Engineering}
-Chaos engineering is an approach to deliberately introducing failures to identify weaknesses and improve resilience \cite{chaos_engineering_definition}. By simulating conditions like Kubernetes pod failure, network delay, and node stress \cite{chaos_mesh_feature}, chaos engineering helps us observe system behaviour under stress and improve system robustness \cite{chaos_engineering_definition}. It also enhances incident response time by enabling a better understanding of failure scenarios \cite{chaos_engineering_definition}. Some chaos engineering tools include Chaos Mesh \cite{chaos_mesh_introduction} and AWS Fault Injection Simulator (FIS) \cite{fis_introduction}.
+
+
+\section{Previous Work}
+Putra \cite{putra} had worked on the same ASR system and his project effectively highlights the advantages of transitioning from a tightly coupled ASR system to a decoupled microservices architecture using Apache Kafka. The use of Kubernetes and other modern cloud-native tools such as Kyverno, Falco, and Knative demonstrates a robust effort to address scalability, reliability, and security challenges in ASR systems. The project discusses the integration of Kafka as the message broker to decouple the master and worker components, ensuring fault tolerance and enabling the system to recover from worker crashes without losing data.
+
+\subsection{Research Gap}
+A significant research gap exists in the implementation's choice of message broker technology. The selection of Kafka for the ASR system raises concerns regarding its fit for scenarios requiring high data accuracy and context preservation. While Kafka's high throughput and durability are valuable for many systems, ASR workflows are fundamentally bottlenecked by the processing speed of workers, not the message broker. This mismatch between technology choice and system requirements suggests that RabbitMQ would be a more suitable alternative due to its task-oriented features and built-in support for state-dependent processing, which better aligns with the sequential nature of speech processing tasks.
+
+Furthermore, while Putra’s work \cite{putra} demonstrated promising results, a practical limitation emerged as the research team no longer has access to his project's codebase. This circumstance has created an opportunity to revisit the system's architecture with fresh perspective, particularly in the areas of component decoupling and scaling mechanisms. The current project therefore aims to not only address the technological fit of the message broker but also to establish a well-documented implementation that can be maintained and evolved by the research team.
 
