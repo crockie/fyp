@@ -7,7 +7,7 @@ Transcription requests were routed through an NGINX Ingress Controller, which fo
 Each Worker Pod was associated with a model attached via a Persistent Volume Claim (PVC). After processing, the Worker Pod sent the transcription results back to the Master Pod, which then forwarded them to the client.
 
 \section{Challenges and Design Evolution}
-Based on the evaluation of the previous architecture, several challenges were identified. The new design addresses these by adopting a more decoupled, scalable, and fault-tolerant approach.
+Based on the evaluation of the previous architecture in Section  \ref{section:challenges}, several challenges were identified. The new design addresses these by adopting a more decoupled, scalable, and fault-tolerant approach.
 
 \subsection{Decoupling Master and Worker Pods}
 The reliance on synchronous WebSocket communication between the Master and Worker Pods introduced significant challenges in fault tolerance and scaling. Any failure in either component would disrupt ongoing transcription tasks. Additionally, scaling Worker Pods dynamically was constrained direct communication.
@@ -23,7 +23,7 @@ To enhance scalability and resilience, the new architecture adopts an message qu
 
 In the new design, the Master Pod publishes transcription tasks to a RabbitMQ task queue. Worker Pods asynchronously consume tasks, process the audio, and publish results to a results queue. The Master Pod retrieves transcription results and sends them back to the client.
 
-This design eliminates direct dependencies between components, allowing independent scaling and improved fault tolerance. RabbitMQ was chosen over alternatives like Kafka due to its robust support for message acknowledgments, ensuring no transcription task is lost in case of failures.
+This design eliminates direct dependencies between components, allowing independent scaling and improved fault tolerance. RabbitMQ was chosen over alternatives like Kafka due to the reasons mentioned in Subsection \ref{subsection:research_gap}.
 
 \subsection{Enhancing State Management and Fault Tolerance}
 Previously, the Worker Pods stored audio data in an in-memory queue. If a worker pod crashed, any buffered data was lost, requiring clients to retransmit. This dependency on volatile storage complicated recovery and degraded system reliability.

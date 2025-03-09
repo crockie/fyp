@@ -14,12 +14,12 @@ Currently, the ASR system is deployed on Kubernetes across Microsoft Azure and A
     \label{fig:previous_architecture}
 \end{figure}
 
-\section{Challenges and Limitations}
+\section{Challenges and Limitations}\label{section:challenges}
 Previous Final Year Project (FYP) students have contributed to various aspects of this ASR system, such as deploying it on AWS with Terraform \cite{song_yu, kai_shern} and enhancing its security \cite{putra}. However, several significant limitations persists:
 \begin{enumerate}
     \item \textbf{Single Point of Failure:} The system relies on a single Master Pod, creating a single point of failure. If this pod crashes, there is no backup instance to handle requests, leading to potential service outages.
-    \item \textbf{Tight Coupling:} The server and worker pods are tightly integrated, communicating synchronously via WebSocket connections. This restricts scalability, as components are highly dependent on each other, making it difficult to scale individual services independently \cite{tight_couple}.
-    \item \textbf{Stateful Components:} Both the server and worker pods maintain state information, such as audio data and worker statuses. This reliance on stateful components complicates fault handling and exacerbates the system's lack of fault tolerance.
+    \item \textbf{Tight Coupling:} The master and worker pods are tightly integrated, communicating synchronously via WebSocket connections. This restricts scalability, as components are highly dependent on each other, making it difficult to scale individual services independently \cite{tight_couple}.
+    \item \textbf{Stateful Components:} Both the master and worker pods maintain state information, such as audio data and worker statuses. This reliance on stateful components complicates fault handling and exacerbates the system's lack of fault tolerance.
     \item \textbf{Worker Failures:} Worker pods can fail due to various reasons, including resource exhaustion, node crashes, or network disruptions. These failures leave audio processing tasks incomplete, disrupting the service. More importantly, worker failures directly impact the system’s ability to meet its Service Level Objectives (SLOs), particularly in terms of latency and availability.
     
 \end{enumerate}

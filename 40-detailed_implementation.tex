@@ -8,7 +8,7 @@ The system consists of the following components:
 \begin{itemize}
     \item \textbf{Client:} The frontend user interface that initiates transcription requests and receives the results.
     \item \textbf{NGINX Ingress Controller:} Routes incoming requests to the Live Processing Service.
-    \item \textbf{Live Processing Service:} Manages the transcription tasks, interacts with the Worker Manager to allocate workers, and maintains a WebSocket connection with the client.
+    \item \textbf{Live Processing Service:} Formerly known as the Master Pod, it manages transcription tasks, coordinates worker allocation with the Worker Manager, and maintains a WebSocket connection with the client.
     \item \textbf{Worker Manager:} Allocates workers to process audio data based on the requested model and monitors the worker pods.
     \item \textbf{Worker:} Process the audio data using the specified ASR model and return the transcription results.
     \item \textbf{Message Queues:} RabbitMQ is used to decouple the communication between the Live Processing Service and the Worker.
@@ -85,8 +85,8 @@ The Live Processing Service is built using Tornado \cite{tornado}, an asynchrono
 The WebSocket handler manages WebSocket connections with clients and streams transcription results back to them. It processes the following events:
 
 \begin{itemize}
-    \item \textbf{open:} Authenticates incoming WebSocket requests, initializes task and result queues in RabbitMQ, requests worker allocation from the Worker Manager, and starts consuming messages from the result queue.
-    \item \textbf{on\_message:} Receives audio data from the client and places it into the task queue. If the message contains the final audio chunk, it deletes the associated task and result queues.
+    \item \textbf{open:} Authenticates incoming WebSocket requests, initializes task and result queues in RabbitMQ, requests worker allocation from the Worker Manager, and starts consuming transcription results from the result queue.
+    \item \textbf{on\_message:} Receives audio data from the client and places it into the task queue.
     \item \textbf{close:} Closes the WebSocket connection with the client and performs cleanup operations.
 \end{itemize}
 
@@ -161,12 +161,27 @@ The primary function of the Worker is to process audio data using the specified 
 Each Worker loads an ASR model developed by the NTU Speech Lab, which is based on the Kaldi ASR toolkit \cite{kaldi}. The model is loaded into memory at startup, enabling low-latency transcription of incoming audio data.
 
 \subsection{Audio Processing}
-Once the Worker Manager assigns an idle Worker to a task, the Worker retrieves the audio data from the task queue in RabbitMQ. It then processes the audio using the ASR model and publishes the transcription results to the result queue in RabbitMQ.  
+Once the Worker Manager assigns an idle Worker to a task via gRPC, the Worker retrieves the audio data from the task queue in RabbitMQ. It then processes the audio using the ASR model and publishes the transcription results to the result queue in RabbitMQ.  
 
 To facilitate fault tolerance, the Worker updates its state in Redis when processing a task. It marks itself as \texttt{busy} and records the assigned task. This allows the Worker Manager to track active tasks and reassign them if a Worker fails.
 
+Figure \ref{fig:worker_processing} illustrates the flow of audio processing in the Worker.
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=.8\textwidth]{figures/worker_processing.drawio.png}
+  \caption{Worker Processing Flow}
+  \label{fig:worker_processing}
+\end{figure}
+
 \subsection{Heartbeat Monitoring}
-To enable health monitoring, the Worker sends periodic heartbeat signals to the Worker Manager. These heartbeats allow the Worker Manager to detect failures and reallocate tasks accordingly. Further details on this mechanism are provided in Subsection \ref{subsection:worker_manager_monitor}.
+To enable health monitoring, the Worker sends periodic heartbeat signals to the Worker Manager (Figure \ref{fig:worker_heartbeat}). These heartbeats allow the Worker Manager to detect failures and reallocate tasks accordingly. Further details on this mechanism are provided in Subsection \ref{subsection:worker_manager_monitor}.
+
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=.8\textwidth]{figures/worker_heartbeat.drawio.png}
+  \caption{Worker Heartbeat Monitoring}
+  \label{fig:worker_heartbeat}
+\end{figure}
 
 \section{Worker Manager} \label{section:worker_manager}
 The Worker Manager is responsible for managing and coordinating worker pods to ensure efficient task processing and fault tolerance. Its core responsibilities include:
@@ -185,17 +200,39 @@ The Worker Manager consists of two primary components:
 \end{itemize}
 
 \subsection{Worker Manager Server}
+
 The Worker Manager Server provides two main gRPC endpoints (Code \ref{lst:worker_manager_server}):
-\begin{itemize}
+\begin{enumerate}
     \item \texttt{AllocateWorker}: Assigns an idle worker to handle a given transcription task.
-    \item \texttt{SendHeartbeat}: Receives periodic heartbeats from workers to track their health status.
-\end{itemize}
+    \item \texttt{SendHeartbeat}: Receives periodic heartbeats from workers to track their health status. Stores the heartbeat timestamps in Redis for monitoring.
+\end{enumerate}
+
+Figure \ref{fig:worker_manager_server} shows how the Worker Manager Server interacts with the Live Processing Service, busy workers and Redis.
+
+\begin{enumerate}
+  \item [1] The Live Processing Service requests worker allocation via \texttt{AllocateWorker}.
+  \item [2.1] The busy workers send periodic heartbeats to the Worker Manager Server via \texttt{SendHeartbeat}.
+  \item [2.2] The Worker Manager Server then stores these heartbeat timestamps in Redis for monitoring.
+\end{enumerate}
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=.8\textwidth]{figures/worker_manager_server.drawio.png}
+  \caption{Worker Manager Server Interaction}
+  \label{fig:worker_manager_server}
+\end{figure}
 
 
 \subsection{Worker Manager Monitor} \label{subsection:worker_manager_monitor}
-The Worker Manager Monitor oversees worker health and task reallocation. It listens for heartbeats and updates worker status in Redis. If a worker fails to send a heartbeat within a predefined timeout, it is considered unavailable, and its task is reassigned. 
+The Worker Manager Monitor is responsible for tracking worker health and handling task reallocation. It retrieves the latest heartbeat timestamps of workers from Redis. If a worker fails to send a heartbeat within a predefined timeout, it is considered unavailable, and its task is reassigned to another worker. This process is illustrated in Figure \ref{fig:worker_manager_monitor}.
+\begin{figure}[ht]
+  \centering
+  \includegraphics[width=.8\textwidth]{figures/worker_manager_heartbeat.drawio.png}
+  \caption{Worker Manager Heartbeat Monitoring}
+  \label{fig:worker_manager_monitor}
+\end{figure}
 
-Code \ref{lst:worker_fault_tolerance} illustrates the fault tolerance mechanism.
+Code \ref{lst:worker_fault_tolerance} shows the snippet of the Worker Manager Monitor's fault tolerance mechanism for the workers.
 
 \begin{lstlisting}[language=python, caption={Worker Fault Tolerance Mechanism}, label={lst:worker_fault_tolerance}]
   async def monitor_heartbeats(self):
@@ -266,9 +303,18 @@ Figure \ref{fig:worker_fault_tolerance} illustrates the Worker Manager detecting
 \end{figure}
 
 \subsubsection{Worker Scaling Policy}
-The Worker Manager dynamically scales worker pods based on system load. A configurable threshold, \texttt{SCALING\_TARGET}, defines the minimum number of idle pods required at any time. The Worker Manager periodically evaluates worker utilization and adjusts the number of replicas accordingly. 
+The Worker Manager dynamically scales worker pods based on system load. A configurable threshold, \texttt{SCALING\_TARGET}, defines the minimum number of idle pods required at any given time. The Worker Manager periodically evaluates worker utilization and adjusts the number of replicas accordingly to ensure optimal resource allocation.
 
-Code \ref{lst:worker_scaling} shows the worker scaling mechanism.
+Figure \ref{fig:worker_scaling_policy} illustrates an example where there are 2 busy worker pods and 2 idle worker pods. If the \texttt{SCALING\_TARGET} is set to 3, the Worker Manager scales up the Worker StatefulSet to 5 replicas when the number of idle pods falls below the threshold. Conversely, when the workers finish processing, the Worker Manager scales down the replicas to ensure the number of idle pods meets the \texttt{SCALING\_TARGET}.
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=.8\textwidth]{figures/worker_scaling_policy.drawio.png}
+  \caption{Worker Scaling Policy Example}
+  \label{fig:worker_scaling_policy}
+\end{figure}
+
+Code \ref{lst:worker_scaling} shows the snippet of the Worker scaling mechanism.
 
 \begin{lstlisting}[language=python, caption={Worker Scaling Policy}, label={lst:worker_scaling}]
 async def monitor_and_scale():
@@ -344,13 +390,13 @@ async def ready(request):
 The health check (\texttt{healthz}) provides a basic indicator of whether the Worker Manager Monitor is running. It responds with an "OK" message to confirm the service is active.
 The readiness check (\texttt{ready}) performs the following validations to ensure the monitor is ready to function:
 \begin{enumerate}
-    \item \textbf{Redis Connection:} Verifies the monitor can connect to Redis by sending a PING request.
+    \item \textbf{Redis Connection:} Verifies the monitor can connect to Redis by sending a \texttt{PING} request.
     \item \textbf{Lock Acquisition:} Ensures the monitor can acquire and release a distributed lock, which is critical for managing shared resources.
 \end{enumerate}
 
 When deployed on Kubernetes, it continuously monitors the readiness and liveness endpoints to determine if the service is ready to receive traffic or if it needs to be restarted. Figure \ref{fig:k8s_healthcheck} shows the successful readiness and liveness check at every 10 seconds interval.
 
-\begin{figure}[ht]
+\begin{figure}[H]
   \centering
   \includegraphics[width=\textwidth]{figures/k8s_healthcheck.png}
   \caption{Kubernetes Readiness and Liveness Checks}
@@ -378,16 +424,8 @@ Terraform is used to manage infrastructure as code. There are three main Terrafo
 \begin{itemize}
     \item \texttt{terraform init}: Initializes the configuration, downloads necessary providers, and sets up modules.
     \item \texttt{terraform plan}: Generates an execution plan to show the changes Terraform will make to the infrastructure. Code \ref{lst:terraform_plan} shows an example of the Terraform execution plan output.
-    \item \texttt{terraform apply}: Applies the changes to create or update infrastructure resources.
+    \item \texttt{terraform apply}: Applies the changes to create or update infrastructure resources. This will update our cloud environment to match the desired state defined in the Terraform configuration files.
 \end{itemize}
-
-Once we verify the plan, we can apply the changes to the infrastructure using: 
-\begin{verbatim}
-  terraform apply
-\end{verbatim}
-
-This will update our cloud environment to match the desired state defined in the Terraform configuration files.
-
 
 \subsection{Storing State Files in S3}
 To enable collaboration among multiple developers, the Terraform state file can be stored in an Amazon S3 bucket. The state file contains the current infrastructure state and helps Terraform determine necessary changes for future deployments.
@@ -441,7 +479,7 @@ resource "aws_dynamodb_table" "terraform-lock" {
 }
 \end{lstlisting}
 
-The Terraform backend configuration can then be updated to use the S3 bucket and DynamoDB table, as shown in Listing~\ref{lst:backend_config}.
+The Terraform backend configuration can then be updated to use the S3 bucket and DynamoDB table, as shown in Code~\ref{lst:backend_config}.
 
 \begin{lstlisting}[language=Terraform, caption={Terraform Backend Configuration}, label={lst:backend_config}]
 terraform {
@@ -537,7 +575,7 @@ The Kubernetes Horizontal Pod Autoscaler (HPA) automatically adjusts the number 
 
 The HPA configuration is defined in a YAML file and applied to the cluster using:
 \begin{verbatim}
-kubectl apply -f <file>
+  kubectl apply -f <file>
 \end{verbatim}
 
 Code \ref{lst:HPA_live_processing_server} provides an example HPA configuration for the Live Processing Server.

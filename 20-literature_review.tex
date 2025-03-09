@@ -83,12 +83,12 @@ Kafka provides at-least-once delivery semantics through offset management \cite{
 RabbitMQ's acknowledgment mechanism offers more flexible delivery guarantees, with built-in support for message acknowledgment \cite{kafka_v_rabbitmq} and automatic requeuing of unprocessed messages \cite{rabbitmq_nack}.
 
 \subsubsection{Processing Requirements}
-For ASR systems, where maintaining speech context is paramount \cite{speech_context}, RabbitMQ's single-queue consumer model aligns better with the need for sequential processing.
+For ASR systems, where maintaining speech context is paramount \cite{speech_context}, RabbitMQ's single-queue consumer model aligns better with the need for sequential processing for live transcription tasks.
 
 The research shows that while Kafka's throughput advantage is significant for high-volume streaming \cite{kafka_v_rabbitmq}, this benefit is less relevant for ASR workloads where processing speed is typically bounded by the speech recognition models rather than message throughput.
 
-\subsubsection{Message Queue Selection}
-Based on these considerations and supported by Dobbelaere and Esmaili's \cite{kafka_v_rabbitmq} findings, RabbitMQ emerges as the more appropriate choice for ASR systems due to its strong message ordering guarantees, flexible acknowledgement mechanisms, and support for sequential processing requirements. By leveraging RabbitMQ's features, ASR systems can ensure accurate transcription results and maintain the context of speech data throughout the processing pipeline.
+\subsubsection{Message Queue Selection} \label{subsection:research_gap}
+Based on these considerations and supported by Dobbelaere and Esmaili's \cite{kafka_v_rabbitmq} findings, RabbitMQ emerges as the more appropriate choice for ASR systems due to its strong message ordering guarantees, flexible acknowledgement mechanisms, and support for sequential processing requirements. By leveraging RabbitMQ's features, ASR systems can ensure accurate transcription results and maintain the context of speech data for live transcription throughout the processing pipeline.
 
 \section{Chaos Engineering}
 Chaos engineering is an approach to deliberately introducing failures to identify weaknesses and improve resilience \cite{chaos_engineering_definition}. By simulating conditions like Kubernetes pod failure, network delay, and node stress \cite{chaos_mesh_feature}, chaos engineering helps us observe system behaviour under stress and improve system robustness \cite{chaos_engineering_definition}. It also enhances incident response time by enabling a better understanding of failure scenarios \cite{chaos_engineering_definition}. Some chaos engineering tools include Chaos Mesh \cite{chaos_mesh_introduction} and AWS Fault Injection Simulator (FIS) \cite{fis_introduction}.
