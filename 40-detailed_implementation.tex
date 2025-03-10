@@ -8,7 +8,7 @@ The system consists of the following components:
 \begin{itemize}
     \item \textbf{Client:} The frontend user interface that initiates transcription requests and receives the results.
     \item \textbf{NGINX Ingress Controller:} Routes incoming requests to the Live Processing Service.
-    \item \textbf{Live Processing Service:} Formerly known as the Master Pod, it manages transcription tasks, coordinates worker allocation with the Worker Manager, and maintains a WebSocket connection with the client.
+    \item \textbf{Live Processing Service:} Formerly known as the master pod, it manages transcription tasks, coordinates worker allocation with the Worker Manager, and maintains a WebSocket connection with the client.
     \item \textbf{Worker Manager:} Allocates workers to process audio data based on the requested model and monitors the worker pods.
     \item \textbf{Worker:} Process the audio data using the specified ASR model and return the transcription results.
     \item \textbf{Message Queues:} RabbitMQ is used to decouple the communication between the Live Processing Service and the Worker.
@@ -161,9 +161,9 @@ The primary function of the Worker is to process audio data using the specified 
 Each Worker loads an ASR model developed by the NTU Speech Lab, which is based on the Kaldi ASR toolkit \cite{kaldi}. The model is loaded into memory at startup, enabling low-latency transcription of incoming audio data.
 
 \subsection{Audio Processing}
-Once the Worker Manager assigns an idle Worker to a task via gRPC, the Worker retrieves the audio data from the task queue in RabbitMQ. It then processes the audio using the ASR model and publishes the transcription results to the result queue in RabbitMQ.  
+Once the Worker Manager assigns an idle Worker to a task via gRPC, the worker retrieves the audio data from the task queue in RabbitMQ. It then processes the audio using the ASR model and publishes the transcription results to the result queue in RabbitMQ.  
 
-To facilitate fault tolerance, the Worker updates its state in Redis when processing a task. It marks itself as \texttt{busy} and records the assigned task. This allows the Worker Manager to track active tasks and reassign them if a Worker fails.
+To facilitate fault tolerance, the worker updates its state in Redis when processing a task. It marks itself as \texttt{BUSY} and records the assigned task. This allows the Worker Manager to track active tasks and reassign them if the worker fails.
 
 Figure \ref{fig:worker_processing} illustrates the flow of audio processing in the Worker.
 \begin{figure}[ht]
@@ -210,9 +210,9 @@ The Worker Manager Server provides two main gRPC endpoints (Code \ref{lst:worker
 Figure \ref{fig:worker_manager_server} shows how the Worker Manager Server interacts with the Live Processing Service, busy workers and Redis.
 
 \begin{enumerate}
-  \item [1] The Live Processing Service requests worker allocation via \texttt{AllocateWorker}.
-  \item [2.1] The busy workers send periodic heartbeats to the Worker Manager Server via \texttt{SendHeartbeat}.
-  \item [2.2] The Worker Manager Server then stores these heartbeat timestamps in Redis for monitoring.
+  \item [1.] The Live Processing Service requests worker allocation via \texttt{AllocateWorker}.
+  \item [2.1.] The busy workers send periodic heartbeats to the Worker Manager Server via \texttt{SendHeartbeat}.
+  \item [2.2.] The Worker Manager Server then stores these heartbeat timestamps in Redis for monitoring.
 \end{enumerate}
 
 \begin{figure}[H]
@@ -224,7 +224,8 @@ Figure \ref{fig:worker_manager_server} shows how the Worker Manager Server inter
 
 
 \subsection{Worker Manager Monitor} \label{subsection:worker_manager_monitor}
-The Worker Manager Monitor is responsible for tracking worker health and handling task reallocation. It retrieves the latest heartbeat timestamps of workers from Redis. If a worker fails to send a heartbeat within a predefined timeout, it is considered unavailable, and its task is reassigned to another worker. This process is illustrated in Figure \ref{fig:worker_manager_monitor}.
+Figure \ref{fig:worker_manager_monitor} illustrates the process of worker health monitoring and task reallocation. The Worker Manager Monitor continuously tracks worker health by retrieving the latest heartbeat timestamps from Redis. If a worker fails to send a heartbeat within the predefined timeout, it is marked as unavailable, and its task is reassigned to another worker.
+
 \begin{figure}[ht]
   \centering
   \includegraphics[width=.8\textwidth]{figures/worker_manager_heartbeat.drawio.png}
@@ -551,7 +552,7 @@ On the EC2 instance:
 
 To connect to the EKS cluster, the AWS CLI can be used to update the \texttt{kubeconfig} file with the cluster details. The following command retrieves the cluster configuration and updates the kubeconfig file:
 \begin{verbatim}
-aws eks --region <region> update-kubeconfig --name <cluster-name>
+  aws eks --region <region> update-kubeconfig --name <cluster-name>
 \end{verbatim}
 
 Once the kubeconfig file is updated, kubectl can be used to interact with the EKS cluster.
@@ -559,7 +560,7 @@ Once the kubeconfig file is updated, kubectl can be used to interact with the EK
 \subsection{Deploying ASR System Components}
 The ASR system can be deployed to the Kubernetes cluster using the Kubernetes manifest files provided in the repository. The deployment process can be initiated with the following command:
 \begin{verbatim}
-kubectl apply -f <file>
+  kubectl apply -f <file>
 \end{verbatim}
 
 The deployment includes the following components:
