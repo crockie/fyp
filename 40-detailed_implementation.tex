@@ -158,7 +158,7 @@ async def allocate_worker_from_worker_manger(self, model_name, task_queue):
 \section{Worker}
 The primary function of the Worker is to process audio data using the specified ASR model and return transcription results.  
 
-Each Worker loads an ASR model developed by the NTU Speech Lab, which is based on the Kaldi ASR toolkit \cite{kaldi}. The model is loaded into memory at startup, enabling low-latency transcription of incoming audio data.
+Each Worker loads an ASR model developed by the NTU Speech Lab, which is based on an end-to-end architecture \cite{chng}. The model is loaded into memory at startup, enabling low-latency transcription of incoming audio data.
 
 \subsection{Audio Processing}
 Once the Worker Manager assigns an idle Worker to a task via gRPC, the worker retrieves the audio data from the task queue in RabbitMQ. It then processes the audio using the ASR model and publishes the transcription results to the result queue in RabbitMQ.  
@@ -210,9 +210,9 @@ The Worker Manager Server provides two main gRPC endpoints (Code \ref{lst:worker
 Figure \ref{fig:worker_manager_server} shows how the Worker Manager Server interacts with the Live Processing Service, busy workers and Redis.
 
 \begin{enumerate}
-  \item [1.] The Live Processing Service requests worker allocation via \texttt{AllocateWorker}.
-  \item [2.1.] The busy workers send periodic heartbeats to the Worker Manager Server via \texttt{SendHeartbeat}.
-  \item [2.2.] The Worker Manager Server then stores these heartbeat timestamps in Redis for monitoring.
+  \item [a.] The Live Processing Service requests worker allocation via \texttt{AllocateWorker}.
+  \item [b.] The busy workers send periodic heartbeats to the Worker Manager Server via \texttt{SendHeartbeat}.
+  \item [c.] The Worker Manager Server then stores these heartbeat timestamps in Redis for monitoring.
 \end{enumerate}
 
 \begin{figure}[H]
@@ -506,7 +506,7 @@ To deploy these resources, the following commands are executed:
 \end{itemize}
 
 \subsection{Deploying EFS and Attaching to Models}
-To store the ASR models, an Elastic File System (EFS) can be deployed. The following steps outline the deployment process:
+To store the ASR models, EFS can be deployed. The following steps outline the deployment process:
 \begin{enumerate}
     \item Create an EC2 instance in a public subnet.
     \item Attach the EFS volume to the instance.
@@ -534,10 +534,9 @@ On the EC2 instance:
 
     \item 
         \begin{sloppypar}
-        \texttt{scp -r -i "<private key name>.pem"   \\<model-directory>@<public-ip>:/mnt/efs}: Copy the model files to the EFS volume.
+        \texttt{scp -r -i "<private key name>.pem"   \\<model-directory>@<public-ip>:/mnt/efs}: Copy the model files to the EFS volume.\enlargethispage{1\baselineskip}
         \end{sloppypar}
 \end{enumerate}
-
 \section{Kubernetes Cluster}
 \texttt{kubectl} is the primary command-line tool for interacting with Kubernetes clusters. It allows users to create, update, and manage resources within the cluster. Below are some commonly used \texttt{kubectl} commands:
 
@@ -550,12 +549,12 @@ On the EC2 instance:
     \item \texttt{kubectl delete <resource> <name>}: Deletes the specified resource.
 \end{itemize}
 
-To connect to the EKS cluster, the AWS CLI can be used to update the \texttt{kubeconfig} file with the cluster details. The following command retrieves the cluster configuration and updates the kubeconfig file:
+To connect to the EKS cluster, the AWS CLI can be used to update the \texttt{kubeconfig} file with the cluster details. The following command retrieves the cluster configuration and updates the \texttt{kubeconfig} file:
 \begin{verbatim}
   aws eks --region <region> update-kubeconfig --name <cluster-name>
 \end{verbatim}
 
-Once the kubeconfig file is updated, kubectl can be used to interact with the EKS cluster.
+Once the \texttt{kubeconfig} file is updated, \texttt{kubectl} can be used to interact with the EKS cluster.
 
 \subsection{Deploying ASR System Components}
 The ASR system can be deployed to the Kubernetes cluster using the Kubernetes manifest files provided in the repository. The deployment process can be initiated with the following command:
@@ -572,7 +571,7 @@ The deployment includes the following components:
 \end{itemize}
 
 \subsection{Horizontal Pod Autoscaler (HPA)}
-The Kubernetes Horizontal Pod Autoscaler (HPA) automatically adjusts the number of pods in a deployment based on resource utilization, such as CPU or memory, or custom metrics. This ensures efficient resource allocation and improved system responsiveness under varying workloads.
+The Kubernetes HPA automatically adjusts the number of pods in a deployment based on resource utilization, such as CPU or memory, or custom metrics. This ensures efficient resource allocation and improved system responsiveness under varying workloads.
 
 The HPA configuration is defined in a YAML file and applied to the cluster using:
 \begin{verbatim}
@@ -639,9 +638,9 @@ As shown in Figure \ref{fig:hpa_cli}, after 30 seconds of sustained load, the CP
 \end{figure}
 
 \subsection{Helm Charts}
-Helm charts were used to deploy the RabbitMQ and Redis clusters. The charts used were from Bitnami, which provides pre-configured Helm charts for popular applications, including RabbitMQ and Redis.
+Helm charts were used to deploy the RabbitMQ and Redis clusters. The charts used were from Bitnami, which provides pre-configured Helm charts for popular applications, including RabbitMQ \cite{rabbitmq_chart} and Redis \cite{redis_chart}.
 
-Users can customize their deployments by specifying configuration parameters in a \texttt{values.yaml} file. This file allows for modifications such as the number of replicas, resource limits, and persistence settings. The full list of configurable values is available in the official Helm chart repository.
+Users can customize their deployments by specifying configuration parameters in a \texttt{values.yaml} file. This file allows for modifications such as the number of replicas, resource limits, and persistence settings. The full list of configurable values is available in the official Helm chart repository \cite{rabbitmq_chart, redis_chart}.
 
 
 The following commands deploy the Redis and RabbitMQ clusters using Helm:
@@ -655,7 +654,7 @@ The following commands deploy the Redis and RabbitMQ clusters using Helm:
     -f values.yaml --namespace asr-sdk --create-namespace
 \end{verbatim}
 
-To ensure data persistence for RabbitMQ and Redis, Amazon Elastic Block Store (EBS) can be configured as the persistent storage backend.
+To ensure data persistence for RabbitMQ and Redis, EBS can be configured as the persistent storage backend.
 \begin{enumerate}
   \item Install the EBS CSI driver on the EKS cluster if it is not already installed.
   \item Annotate the EBS CSI service account with the IAM role created for EBS via Terraform using the following command:

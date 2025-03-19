@@ -2,7 +2,7 @@
 \section{Previous Architecture}
 The previous architecture of the ASR system, as illustrated in Figure \ref{fig:previous_architecture}, was deployed on a Kubernetes cluster hosted on AWS.
 
-Transcription requests were routed through an NGINX Ingress Controller, which forwarded them to a master pod responsible for managing transcription tasks. Upon receiving a request, the master pod authenticated it and, if a worker pod was available, initiated a WebSocket connection. The audio data was then transmitted to the worker pod for transcription.
+Transcription requests were routed through an NGINX Ingress Controller, which forwarded them to a master pod responsible for managing transcription tasks. Upon receiving a request, the master pod authenticated it and, if a worker pod was available, initiated a WebSocket connection. The audio data was then forwarded to a worker pod for transcription.
 
 Each worker pod was associated with a model attached via a Persistent Volume Claim (PVC). After processing, the worker pod sent the transcription results back to the master pod, which then forwarded them to the client.
 
@@ -10,10 +10,10 @@ Each worker pod was associated with a model attached via a Persistent Volume Cla
 Based on the evaluation of the previous architecture in Section \ref{section:challenges}, several challenges were identified. The new design addresses these by adopting a more decoupled, scalable, and fault-tolerant approach.
 
 \subsection{Decoupling Master and Worker Pods}
-The reliance on synchronous WebSocket communication between the master and worker pods introduced significant challenges in fault tolerance and scaling. Any failure in either component would disrupt ongoing transcription tasks Additionally, scaling worker pods dynamically was constrained direct communication.
+The reliance on synchronous WebSocket communication between the master and worker pods introduced significant challenges in fault tolerance and scaling. Any failure in either component would disrupt ongoing transcription tasks. Additionally, scaling worker pods dynamically was constrained direct communication.
 
 \subsubsection{Proposed Solution: Asynchronous Messaging}
-To enhance scalability and resilience, the new architecture adopts an message queue approach using RabbitMQ (Figure \ref{fig:decouple}).
+To enhance scalability and resilience, the new architecture adopts a message queue approach using RabbitMQ (Figure \ref{fig:decouple}).
 \begin{figure}[!ht]
     \centering
     \includegraphics[width=\textwidth]{figures/decouple.drawio.png}
@@ -21,18 +21,16 @@ To enhance scalability and resilience, the new architecture adopts an message qu
     \label{fig:decouple}
 \end{figure}
 
-In the new design, the master pod publishes transcription tasks to a RabbitMQ task queue. Worker pods asynchronously consume tasks, process the audio, and publish results to a results queue. The master pod retrieves transcription results and sends them back to the client.
-
-This design eliminates direct dependencies between components, allowing independent scaling and improved fault tolerance. RabbitMQ was chosen over alternatives like Kafka due to the reasons mentioned in Subsection \ref{subsection:research_gap}.
+In the new design, the master pod publishes transcription tasks to a RabbitMQ task queue. Worker pods asynchronously consume tasks, process the audio, and publish results to a results queue. The master pod retrieves transcription results and sends them back to the client. This design eliminates direct dependencies between components, allowing independent scaling and improved fault tolerance.
 
 \subsection{Enhancing State Management and Fault Tolerance}
-Previously, the worker pods stored audio data in an in-memory queue. If a worker pod crashed, any buffered data was lost, requiring clients to retransmit. This dependency on volatile storage complicated recovery and degraded system reliability.
+Previously, the worker pods stored audio data in an in-memory queue. If a worker pod crashed, all buffered data would be lost, requiring clients to retransmit. This dependency on volatile storage complicated recovery and degraded system reliability.
 
 \subsubsection{Proposed Solution: Redis for State Persistence}
 To mitigate data loss and improve fault tolerance, the application state is now stored in Redis, ensuring that if a service fails, it can recover essential state information. Additionally, RabbitMQ’s message durability ensures that queued transcription tasks are not lost if a worker crashes. If a worker pod fails mid-transcription, a new worker can pick up the task from the queue without requiring client intervention. This redesign significantly enhances fault tolerance and ensures a seamless recovery mechanism.
 
 \subsection{Scaling and Load Management}
-The previous deployment relied on a single master pod, creating a single point of failure. Additionally, worker scaling required manual intervention, making it inefficient and slow in responding to traffic fluctuations.
+The previous deployment relied on a single master pod, creating a single point of failure. Additionally, worker scaling required manual interventions, making it inefficient and slow in responding to traffic fluctuations.
 
 \subsubsection{Proposed Solution: Kubernetes Autoscaling and Worker Manager}
 The new architecture incorporates:
@@ -50,14 +48,14 @@ Key features of this solution include:
 \end{itemize}
 
 \subsection{Improving Documentation and Code Readability}
-The previous ASR system codebase lacked sufficient documentation, making it difficult to onboard new developers and troubleshoot issues. Without clear documentation, understanding system behavior and implementing new features was time-consuming.
+The previous ASR system codebase lacked sufficient documentation, making it difficult to onboard new developers and troubleshoot issues. Without clear documentation, understanding system behavior and implementing new features were time-consuming.
 
 \subsubsection{Proposed Solution: Structured Documentation Strategy}
 To address these challenges, the new codebase will prioritize comprehensive and clear documentation. A detailed \texttt{README} file will provide an overview of the project, including its architecture, purpose, and key components. Additionally, inline comments will be incorporated throughout the codebase to explain the functionality and intent of each component.
 
 This documentation strategy offers two key benefits:
 \begin{enumerate}
-    \item \textbf{Faster Developer Onboarding:} New developers can quickly grasp system functionality with clear explanations and structured guidance.
+    \item \textbf{Faster Developer Onboarding:} New developers can quickly grasp system functionalities with clear explanations and structured guidance.
     \item \textbf{Improved Maintainability:} Well-documented code ensures future modifications can be made efficiently without extensive reverse-engineering.
 \end{enumerate}
 

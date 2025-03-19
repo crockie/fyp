@@ -1,5 +1,5 @@
 \chapter{Literature Review} \label{chapter:literature_review}
-The development of reliable and scalable Automatic Speech Recognition (ASR) systems requires an understanding of modern distributed systems technologies and architectural design. This literature review examines the technologies and approaches relevant to enhancing ASR system scalability and resilience. The review begins with an introduction to the key technologies in distributed systems, containerization cloud infrastructure, chaos enginnering and message queues. It then discussed the previous work on the ASR system and explore the research gap.
+The development of reliable and scalable ASR systems requires an understanding of modern distributed systems technologies and architectural design. This literature review examines the technologies and approaches relevant to enhancing ASR system scalability and resilience. The review begins with an introduction to the key technologies in distributed systems, containerization cloud infrastructure, chaos enginnering and message queues. It then discussed the previous work on the ASR system and explore the research gap.
 
 \section{Distributed Systems Architecture}
 \subsection{Evolution of Microservices}
@@ -18,7 +18,7 @@ Figure \ref{fig:grpc} illustrates the gRPC architecture, which consists of the f
     \item \textbf{Server}: The application that implements the gRPC service and processes incoming requests.
     \item \textbf{Protocol Buffers}: A language-agnostic schema used to define services and message structures.
     \item \textbf{gRPC Stub}: The auto-generated client and server code derived from Protocol Buffer definitions.
-    \item \textbf{HTTP/2}: The transport protocol used to facilitate efficient and multiplexed communication.
+    \item \textbf{Hypertext Transfer Protocol (HTTP)/2}: The transport protocol used to facilitate efficient and multiplexed communication.
 \end{enumerate}
 
 \begin{figure}[H]
@@ -34,16 +34,15 @@ The process begins with defining the service and message types using Protocol Bu
 
 \section{Containerization}
 \subsection{Docker}
-Docker is a service that leverages on operating system level virtualisation to package software into containers \cite{docker_definition}. Bernstein \cite{Bernstein} explains how Docker containers package applications with their dependencies. This consistency is crucial for ASR systems, where complex model and service dependencies must be managed effectively.
-
+Docker is a service that utilizes operating system-level virtualization to package software into lightweight, portable containers \cite{docker_definition}. Each Docker container bundles an application together with its required dependencies, ensuring consistent behavior across different environments \cite{container_definition}. This consistency is particularly vital for ASR systems, where managing complex model dependencies and service configurations is essential for reliable performance.
 \subsection{Kubernetes}
 Kubernetes is a container orchestration tool used to automate the deployment and management of containers \cite{k8s_definition}. 
 
 A Kubernetes cluster (Figure \ref{fig:kubernetes_architecture}) contains the following key components \cite{k8s_cluster}:
 \begin{enumerate}
-    \item \textbf{Control Plane}: Manages the cluster and schedules workloads.
+    \item \textbf{Control Plane}: Consists of the following components:
     \begin{itemize}
-        \item \textbf{API Server}: Exposes the Kubernetes API.
+        \item \textbf{Application Programming Interface (API) Server}: Exposes the Kubernetes API.
         \item \textbf{etcd}: Key-value store for cluster data.
         \item \textbf{Scheduler}: Assigns workloads to nodes.
         \item \textbf{Controller Manager}: Ensures the desired state of the cluster.
@@ -102,7 +101,7 @@ Terraform is an IaC tool that allows for the declarative management of cloud res
 Terraform enables teams to consistently replicate environments across development, testing, and production stages \cite{iac_benefits}, ensuring that infrastructure configurations remain identical at each phase. By maintaining infrastructure as code, teams can version control their changes, enabling peer reviews and the ability to roll back modifications if issues arise. Terraform also manages dependencies between different cloud resources automatically \cite{terraform_dependencies}, reducing the complexity of infrastructure deployment. 
 
 \section{Chaos Engineering}
-Chaos engineering is an approach to deliberately introducing failures to identify weaknesses and improve resilience \cite{chaos_engineering_definition}. By simulating conditions like Kubernetes pod failure, network delay, and node stress \cite{chaos_mesh_feature}, chaos engineering helps us observe system behaviour under stress and improve system robustness \cite{chaos_engineering_definition}. It also enhances incident response time by enabling a better understanding of failure scenarios \cite{chaos_engineering_definition}. Some chaos engineering tools include Chaos Mesh \cite{chaos_mesh_introduction} and AWS Fault Injection Simulator (FIS) \cite{fis_introduction}.
+Chaos engineering is a proactive approach to identifying system weaknesses by deliberately introducing failures \cite{chaos_engineering_definition}. By simulating conditions like Kubernetes pod failure, network delay, and node stress \cite{chaos_mesh_feature}, chaos engineering helps us observe system behaviour under stress and improve system robustness \cite{chaos_engineering_definition}. It also enhances incident response time by enabling a better understanding of failure scenarios \cite{chaos_engineering_definition}. Some chaos engineering tools include Chaos Mesh \cite{chaos_mesh_introduction} and AWS Fault Injection Simulator (FIS) \cite{fis_introduction}.\enlargethispage{1\baselineskip}
 
 \section{In-memory Data Storage}
 \subsection{Redis}
@@ -118,8 +117,7 @@ To achieve high availability, Redis can be configured with replication to keep i
 \end{figure}
 
 \section{Message Queues}
-Message queues enable asynchronous communication between services in distributed systems, providing temporary message storage and reliable delivery mechanisms \cite{queue_definition}. This asynchronous pattern facilitates decoupling of producers and consumers \cite{queue_decouple}, allowing components to scale independently and operate without direct dependencies on each other. 
-
+Message queues enable asynchronous communication between services in distributed systems, providing temporary message storage and reliable delivery mechanisms \cite{queue_definition}. This asynchronous pattern facilitates decoupling of producers and consumers \cite{queue_decouple}, allowing components to scale independently and operate without direct dependencies on each other. This section compares Apache Kafka and RabbitMQ, two popular message brokers, to determine the most suitable choice for ASR systems.
 \subsection{Apache Kafka}
 Apache Kafka is designed as a distributed log-based messaging system, and its main use case is for ingesting and streaming real-time data \cite{kafka_definition}. Kafka's architecture centers around append-only logs (topics) divided into partitions, where messages are immutably stored and accessed via offset-based positioning \cite{kafka_documentation}.
 
@@ -154,17 +152,16 @@ There are four main types of exchanges in RabbitMQ \cite{rabbitmq_exchanges}:
 \end{enumerate}
 
 \subsection{Comparison of Kafka and RabbitMQ}
-While both systems are robust message brokers, their architectural differences significantly impact their suitability for ASR applications. Below, we compare Kafka and RabbitMQ across key dimensions relevant to ASR systems.
+While both systems are robust message brokers, their architectural differences significantly impact their suitability for ASR applications. This section compares them across key dimensions relevant to ASR systems.
 
 \subsubsection{Message Ordering}
-Kafka's partitioned architecture, while enabling high throughput, cannot guarantee message ordering across partitions. Dobbelaere and Esmaili \cite{kafka_v_rabbitmq} note that Kafka's ordering guarantees are limited to individual partitions.
+Kafka's partitioned architecture, while enabling high throughput, cannot guarantee message ordering across partitions. As noted by Dobbelaere and Esmaili \cite{kafka_v_rabbitmq}, Kafka's ordering guarantees are confined to individual partitions only.
 
-RabbitMQ, through its queue-based architecture, maintains strict FIFO (First-In-First-Out) ordering within queues in the same channel \cite{kafka_v_rabbitmq}, making it more suitable for live transcription ASR systems where speech context and sequence are crucial.
+In contrast, RabbitMQ employs a queue-based architecture that enforces strict First-In-First-Out (FIFO) ordering within each queue and channel \cite{kafka_v_rabbitmq}. This characteristic makes RabbitMQ more suitable for live transcription ASR systems, where preserving the sequence and context of speech data is essential for accurate transcription.
 
-\subsubsection{Message Delivery Guarantees}
-Kafka provides at-least-once delivery semantics through offset management \cite{kafka_v_rabbitmq}, but consumers must handle offset commits carefully to avoid message reprocessing.
+\subsubsection{Message Delivery Guarantees} Kafka ensures at-least-once delivery semantics through offset management \cite{kafka_v_rabbitmq}. However, consumers must carefully manage offset commits to prevent reprocessing or potential data loss.
 
-RabbitMQ's acknowledgment mechanism offers more flexible delivery guarantees, with built-in support for message acknowledgment \cite{kafka_v_rabbitmq} and automatic requeuing of unprocessed messages \cite{rabbitmq_nack}.
+RabbitMQ, on the other hand, offers more flexible delivery guarantees via its acknowledgment mechanism \cite{kafka_v_rabbitmq}. It supports both positive acknowledgments and negative acknowledgments (NACKs), allowing unprocessed messages to be requeued automatically \cite{rabbitmq_nack}. These features are advantageous for ASR systems, where reliability, data integrity, and the prevention of audio data loss are crucial.
 
 \subsubsection{Processing Requirements}
 For ASR systems, where maintaining speech context is paramount \cite{speech_context}, RabbitMQ's single-queue consumer model aligns better with the need for sequential processing for live transcription tasks.
