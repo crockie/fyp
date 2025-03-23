@@ -73,13 +73,13 @@ To handle failures of the Live Processing Service:
 \section{Live Processing Service}
 The Live Processing Service manages WebSocket connections with clients to facilitate real-time transcription. Its primary functions include:
 \begin{enumerate}
-  \item \textbf{WebSocket Communication:} Establishing and managing WebSocket connections to stream transcription results in real time.
+  \item \textbf{WebSocket Communication:} Establishing and managing WebSocket connections to stream transcription results in real-time.
   \item \textbf{Task Management:} Creating and managing task and result queues in RabbitMQ for each transcription request.
   \item \textbf{Worker Allocation:} Requesting worker allocation from the Worker Manager based on the required ASR model.
 \end{enumerate}
 
 
-The Live Processing Service is built using Tornado \cite{tornado}, an asynchronous web framework optimized for handling long-lived connections and scaling to thousands of concurrent WebSocket sessions. This makes it well-suited for real-time applications such the ASR system.
+The Live Processing Service is built using Tornado \cite{tornado}, an asynchronous web framework optimized for handling long-lived connections and scaling to thousands of concurrent WebSocket sessions. This makes it well-suited for real-time applications such as the ASR system.
 
 \subsection{WebSocket Handler}
 The WebSocket handler manages WebSocket connections with clients and streams transcription results back to them. It processes the following events:
@@ -120,7 +120,7 @@ async def connect(self):
 \end{lstlisting}
 
 \subsection{Worker Allocation via gRPC}
-The Live Processing Service requests worker allocation from the Worker Manager using gRPC. This ensures low-latency, efficient communication, which is critical for real-time transcription.
+The Live Processing Service requests worker allocation from the Worker Manager using gRPC. This ensures low latency, and efficient communication, which is critical for real-time transcription.
 
 To allocate a worker for a transcription task, the Live Processing Service sends a gRPC request specifying the required ASR model. The Worker Manager responds with an available worker instance. This interaction leverages Protocol Buffers for efficient data serialization and the gRPC stub generated from the service definition.
 
@@ -288,7 +288,7 @@ To prevent race conditions when multiple Worker Manager pods are deployed, the W
 \subsubsection{Testing Worker Fault Tolerance}
 To validate the fault tolerance mechanism, the Worker Manager was tested under failure scenarios, such as unexpected worker crashes.
 
-To simulate a worker failure, worker pod processing the audio data can be delibrately terminated using the following command:
+To simulate a worker failure, the worker pod processing the audio data can be deliberately terminated using the following command:
 \begin{verbatim}
   kubectl delete -n asr-sdk --now <worker-pod-name> \
     --cascade=background
@@ -346,10 +346,10 @@ async def monitor_and_scale():
         await asyncio.sleep(CHECK_INTERVAL)
 \end{lstlisting}
 
-The system checks idle pods every \texttt{CHECK\_INTERVAL} seconds, ensuring that scaling adjustments do not occur too frequently. This is to allow for the previous scaling operation to taken effect before the next check, preventing excessive scaling activity.
+The system checks idle pods every \texttt{CHECK\_INTERVAL} seconds, ensuring that scaling adjustments do not occur too frequently. This is to allow for the previous scaling operation to take effect before the next check, preventing excessive scaling activity.
 
 \subsubsection{Testing Worker Scaling}
-To validate the worker scaling policy, the system was tested under varying workloads to observe how the Worker Manager adapts in real time.
+To validate the worker scaling policy, the system was tested under varying workloads to observe how the Worker Manager adapts in real-time.
 
 Figure \ref{fig:worker_scaling_up_down} shows the logs of the Worker Manager, illustrating the dynamic scaling behavior of the Worker Manager. When a transcription task starts and an available worker is assigned to process it, the number of idle pods drops below the \texttt{SCALING\_TARGET}, triggering an automatic scale-up. Conversely, once the task is completed and the worker becomes idle again, the Worker Manager scales down the replicas to optimize resource usage.
 

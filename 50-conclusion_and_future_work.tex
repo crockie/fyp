@@ -4,7 +4,7 @@
 
 This project has significantly improved the scalability, resilience, and fault tolerance of the ASR system by transitioning to a decoupled architecture. By integrating RabbitMQ, the system effectively separates the master and worker pods, enabling independent scaling and reducing interdependencies. This architectural shift enhances flexibility and resilience, ensuring that the system can efficiently handle varying workloads.  
 
-A dynamic and predictive scaling policy was implemented, allowing the system to adjust worker instances in real time based on workload demands. This optimization ensures efficient resource utilization while maintaining low-latency processing, improving overall system responsiveness.  
+A dynamic and predictive scaling policy was implemented, allowing the system to adjust worker instances in real-time based on workload demands. This optimization ensures efficient resource utilization while maintaining low-latency processing, improving overall system responsiveness.  
 
 To further enhance reliability, fault recovery mechanisms were introduced to minimize service disruptions. The system can now quickly detect and recover from worker failures, ensuring that transcription tasks continue without interruptions. Additionally, by externalizing application state management to Redis, the system achieves greater resilience against crashes and failures. This stateless design simplifies scaling and ensures that no transcription tasks are lost during failures.  
 

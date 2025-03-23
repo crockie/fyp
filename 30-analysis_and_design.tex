@@ -10,7 +10,7 @@ Each worker pod was associated with a model attached via a Persistent Volume Cla
 Based on the evaluation of the previous architecture in Section \ref{section:challenges}, several challenges were identified. The new design addresses these by adopting a more decoupled, scalable, and fault-tolerant approach.
 
 \subsection{Decoupling Master and Worker Pods}
-The reliance on synchronous WebSocket communication between the master and worker pods introduced significant challenges in fault tolerance and scaling. Any failure in either component would disrupt ongoing transcription tasks. Additionally, scaling worker pods dynamically was constrained direct communication.
+The reliance on synchronous WebSocket communication between the master and worker pods introduced significant challenges in fault tolerance and scaling. Any failure in either component would disrupt ongoing transcription tasks. Additionally, scaling worker pods dynamically was constrained by the direct communication with the master pod.
 
 \subsubsection{Proposed Solution: Asynchronous Messaging}
 To enhance scalability and resilience, the new architecture adopts a message queue approach using RabbitMQ (Figure \ref{fig:decouple}).
@@ -56,7 +56,7 @@ To address these challenges, the new codebase will prioritize comprehensive and 
 This documentation strategy offers two key benefits:
 \begin{enumerate}
     \item \textbf{Faster Developer Onboarding:} New developers can quickly grasp system functionalities with clear explanations and structured guidance.
-    \item \textbf{Improved Maintainability:} Well-documented code ensures future modifications can be made efficiently without extensive reverse-engineering.
+    \item \textbf{Improved Maintainability:} Well-documented code ensures future modifications can be made efficiently without extensive reverse engineering.
 \end{enumerate}
 
 Even a simple inline comment describing a function’s purpose and parameters can significantly improve readability. For instance, Code \ref{lst:code_documentation} demonstrates how a well-placed comment enhances code clarity.

@@ -1,5 +1,5 @@
 \chapter{Literature Review} \label{chapter:literature_review}
-The development of reliable and scalable ASR systems requires an understanding of modern distributed systems technologies and architectural design. This literature review examines the technologies and approaches relevant to enhancing ASR system scalability and resilience. The review begins with an introduction to the key technologies in distributed systems, containerization cloud infrastructure, chaos enginnering and message queues. It then discussed the previous work on the ASR system and explore the research gap.
+The development of reliable and scalable ASR systems requires an understanding of modern distributed systems technologies and architectural design. This literature review examines the technologies and approaches relevant to enhancing ASR system scalability and resilience. The review begins with an introduction to the key technologies in distributed systems, containerization cloud infrastructure, chaos engineering and message queues. It then discussed the previous work on the ASR system and explored the research gap.
 
 \section{Distributed Systems Architecture}
 \subsection{Evolution of Microservices}
@@ -40,7 +40,7 @@ Kubernetes is a container orchestration tool used to automate the deployment and
 
 A Kubernetes cluster (Figure \ref{fig:kubernetes_architecture}) contains the following key components \cite{k8s_cluster}:
 \begin{enumerate}
-    \item \textbf{Control Plane}: Consists of the following components:
+    \item \textbf{Control Plane}: Manages the cluster and schedules workloads.
     \begin{itemize}
         \item \textbf{Application Programming Interface (API) Server}: Exposes the Kubernetes API.
         \item \textbf{etcd}: Key-value store for cluster data.
@@ -63,10 +63,10 @@ A Kubernetes cluster (Figure \ref{fig:kubernetes_architecture}) contains the fol
     \label{fig:kubernetes_architecture}
 \end{figure}
 
-Burns et al. \cite{k8s_architecture} detail its architecture and ability to manage containerized applications at scale. For ASR systems, Kubernetes provides essential features such as automatic scaling, self-healing, and rolling updates \cite{k8s_features}, which are crucial for maintaining service reliability.
+For ASR systems, Kubernetes provides essential features such as automatic scaling, self-healing, and rolling updates \cite{k8s_features}, which are crucial for maintaining service reliability.
 
 \subsection{Helm}
-Helm is a package manager for Kubernetes applications \cite{helm_definition}. Helm utilises Charts, as reusable packages that contains pre-configured Kubernetes resources \cite{helm_charts}, making complex application deployments more manageable. These Charts function as templates that can be customized through value files \cite{helm_definition}, enabling environment-specific configurations while maintaining consistency in the underlying architecture.
+Helm is a package manager for Kubernetes applications \cite{helm_definition}. Helm utilises Charts, as reusable packages that contain pre-configured Kubernetes resources \cite{helm_charts}, making complex application deployments more manageable. These Charts function as templates that can be customized through value files \cite{helm_definition}, enabling environment-specific configurations while maintaining consistency in the underlying architecture.
 
 \section{Amazon Web Services (AWS)}
 AWS is a cloud service provider that offers a wide range of products and services. These services span compute, storage, networking, database, and container management, among others \cite{aws_definition}.
@@ -75,7 +75,7 @@ AWS is a cloud service provider that offers a wide range of products and service
 Amazon VPC forms the networking foundation for AWS resources, providing an isolated virtual network environment in the cloud \cite{vpc}. It enables users to define network architecture with custom IP address ranges, subnets, and routing tables \cite{vpc}. A key feature is its ability to span multiple Availability Zones (AZs) within a region, enhancing system resilience through geographical distribution \cite{vpc_az}.
 
 \subsection{Elastic Compute Cloud (EC2)}
-Amazon EC2 is a computing service that provides scalable virtual machines (instances) in the cloud \cite{ec2_definition}. It offers a wide range of instance types optimized for different use cases, from compute-intensive applications to memory-intensive workloads \cite{ec2_instance_types}. EC2 instances can be launched across multiple AZs for high availability. EC2 pricing models including on-demand, reserved, and spot instances to optimize costs based on workload patterns \cite{ec2_pricing}.
+Amazon EC2 is a computing service that provides scalable virtual machines (instances) in the cloud \cite{ec2_definition}. It offers a wide range of instance types optimized for different use cases, from compute-intensive applications to memory-intensive workloads \cite{ec2_instance_types}. EC2 instances can be launched across multiple AZs for high availability. EC2 pricing models include on-demand, reserved, and spot instances to optimize costs based on workload patterns \cite{ec2_pricing}.
 
 \subsection{Identity and Access Management (IAM)}
 IAM provides fine-grained access control to AWS resources \cite{iam_definition}. It implements the principle of least privilege through a comprehensive policy framework that defines who (principal) can do what (actions) on which resources under specific conditions \cite{iam_security}. IAM enables organizations to manage user identities, roles, and permissions centrally, ensuring secure access to cloud resources while maintaining compliance requirements.
@@ -93,15 +93,15 @@ Amazon EFS provides scalable, fully managed network file storage for use with AW
 Amazon EBS is a block storage service that is highly performant and scalable \cite{ebs_definition}. It can be used with EC2 instances to provide persistent storage volumes for EKS \cite{ebs_with_eks}. EBS volumes support various types, including General Purpose SSD (gp2), Provisioned IOPS SSD (io1), and Throughput Optimized HDD (st1) \cite{ebs_types}, enabling users to select the appropriate storage type based on performance requirements.
 
 \section{Infrastructure-as-Code (IaC)}
-IaC is an approach to managing and provisioning computing infrastructure through  configuration files, rather than through physical hardware configuration or interactive configuration tools. This method allows for the automation of infrastructure setup, ensuring consistency and reducing the risk of human error \cite{iac_benefits}.
+IaC is an approach to managing and provisioning computing infrastructure through configuration files, rather than through physical hardware configuration or interactive configuration tools. This method allows for the automation of infrastructure setup, ensuring consistency and reducing the risk of human error \cite{iac_benefits}.
 
 \subsection{Terraform}
-Terraform is an IaC tool that allows for the declarative management of cloud resources \cite{terraform_hashicorp}. This means that we define the desired final state of our architecture, and Terraform will apply changes only when necessary to achieve that state \cite{terraform_declarative}. Unlike traditional manual deployment through cloud provider consoles (often referred to as "ClickOps" \cite{clickops}), Terraform enables organizations to define their infrastructure using declarative configuration files. This code-driven approach transforms infrastructure deployment from a manual, error-prone process into an automated, version-controlled workflow.
+Terraform is an IaC tool that allows for the declarative management of cloud resources \cite{terraform_hashicorp}. In Terraform, the desired final state of the architecture is specified, and it only applies the necessary changes to achieve that state \cite{terraform_declarative}. Unlike traditional manual deployment through cloud provider consoles (often referred to as "ClickOps" \cite{clickops}), Terraform enables organizations to define their infrastructure using declarative configuration files. This code-driven approach transforms infrastructure deployment from a manual, error-prone process into an automated, version-controlled workflow.
 
 Terraform enables teams to consistently replicate environments across development, testing, and production stages \cite{iac_benefits}, ensuring that infrastructure configurations remain identical at each phase. By maintaining infrastructure as code, teams can version control their changes, enabling peer reviews and the ability to roll back modifications if issues arise. Terraform also manages dependencies between different cloud resources automatically \cite{terraform_dependencies}, reducing the complexity of infrastructure deployment. 
 
 \section{Chaos Engineering}
-Chaos engineering is a proactive approach to identifying system weaknesses by deliberately introducing failures \cite{chaos_engineering_definition}. By simulating conditions like Kubernetes pod failure, network delay, and node stress \cite{chaos_mesh_feature}, chaos engineering helps us observe system behaviour under stress and improve system robustness \cite{chaos_engineering_definition}. It also enhances incident response time by enabling a better understanding of failure scenarios \cite{chaos_engineering_definition}. Some chaos engineering tools include Chaos Mesh \cite{chaos_mesh_introduction} and AWS Fault Injection Simulator (FIS) \cite{fis_introduction}.\enlargethispage{1\baselineskip}
+Chaos engineering is a proactive approach to identifying system weaknesses by deliberately introducing failures \cite{chaos_engineering_definition}. By simulating conditions like Kubernetes pod failure, network delay, and node stress \cite{chaos_mesh_feature}, chaos engineering helps us observe system behaviour under stress and improve system robustness \cite{chaos_engineering_definition}. It also enhances incident response time by enabling a better understanding of failure scenarios \cite{chaos_engineering_definition}. Some chaos engineering tools include Chaos Mesh \cite{chaos_mesh_introduction} and AWS Fault Injection Simulator (FIS) \cite{fis_introduction}.
 
 \section{In-memory Data Storage}
 \subsection{Redis}
@@ -117,11 +117,11 @@ To achieve high availability, Redis can be configured with replication to keep i
 \end{figure}
 
 \section{Message Queues}
-Message queues enable asynchronous communication between services in distributed systems, providing temporary message storage and reliable delivery mechanisms \cite{queue_definition}. This asynchronous pattern facilitates decoupling of producers and consumers \cite{queue_decouple}, allowing components to scale independently and operate without direct dependencies on each other. This section compares Apache Kafka and RabbitMQ, two popular message brokers, to determine the most suitable choice for ASR systems.
+Message queues enable asynchronous communication between services in distributed systems, providing temporary message storage and reliable delivery mechanisms \cite{queue_definition}. This asynchronous pattern facilitates the decoupling of producers and consumers \cite{queue_decouple}, allowing components to scale independently and operate without direct dependencies on each other. This section compares Apache Kafka and RabbitMQ, two popular message brokers, to determine the most suitable choice for ASR systems.
 \subsection{Apache Kafka}
 Apache Kafka is designed as a distributed log-based messaging system, and its main use case is for ingesting and streaming real-time data \cite{kafka_definition}. Kafka's architecture centers around append-only logs (topics) divided into partitions, where messages are immutably stored and accessed via offset-based positioning \cite{kafka_documentation}.
 
-Figure \ref{fig:kafka_partitioning} illustrates Kafka's partitioning mechanism, where messages are distributed across partitions within a topic.This partitioning enables Kafka to achieve high throughput by allowing multiple consumers to read messages concurrently from different partitions \cite{kafka_parallel}.
+Figure \ref{fig:kafka_partitioning} illustrates Kafka's partitioning mechanism, where messages are distributed across partitions within a topic. This partitioning enables Kafka to achieve high throughput by allowing multiple consumers to read messages concurrently from different partitions \cite{kafka_parallel}.
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{figures/kafka_topics_partition.png}
@@ -180,5 +180,5 @@ A critical research gap exists in the selection of message broker technology for
 
 In contrast, RabbitMQ provides robust acknowledgment and message ordering guarantees, making it better suited for ASR tasks that require strict message sequencing and sequential processing. Consequently, RabbitMQ may offer a more suitable alternative for ensuring accurate and context-aware transcription.
 
-Furthermore, while Putra’s work \cite{putra} demonstrated promising results, a practical limitation emerged as the research team no longer has access to his project's codebase. This circumstance has created an opportunity to revisit the system's architecture with fresh perspective, particularly in the areas of component decoupling and scaling mechanisms. The current project therefore aims to not only address the technological fit of the message broker but also to establish a well-documented implementation that can be maintained and evolved by the research team.
+Furthermore, while Putra’s work \cite{putra} demonstrated promising results, a practical limitation emerged as the research team no longer had access to his project's codebase. This circumstance has created an opportunity to revisit the system's architecture with a fresh perspective, particularly in the areas of component decoupling and scaling mechanisms. The current project therefore aims to not only address the technological fit of the message broker but also to establish a well-documented implementation that can be maintained and evolved by the research team.
 

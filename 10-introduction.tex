@@ -15,7 +15,7 @@ Currently, the ASR system is deployed on Kubernetes across Microsoft Azure and A
 \end{figure}
 
 \section{Challenges and Limitations}\label{section:challenges}
-Previous Final Year Project (FYP) students have contributed to various aspects of this ASR system, such as deploying it on AWS with Terraform \cite{song_yu, kai_shern} and enhancing its security \cite{putra}. However, several significant limitations persists:
+Previous Final Year Project (FYP) students have contributed to various aspects of this ASR system, such as deploying it on AWS with Terraform \cite{song_yu, kai_shern} and enhancing its security \cite{putra}. However, several significant limitations persist:
 \begin{enumerate}
     \item \textbf{Tight Coupling:} The master and worker pods are tightly integrated, communicating synchronously via WebSocket connections. This restricts scalability, as components are highly dependent on each other, making it difficult to scale individual services independently \cite{tight_couple}.
     \item \textbf{Stateful Components:} Both the master and worker pods maintain state information, such as audio data and worker statuses. This reliance on stateful components complicates fault handling and exacerbates the system's lack of fault tolerance.
@@ -30,8 +30,8 @@ The objective of this FYP is to enhance the scalability and resilience of the AS
 \subsection{In Scope}
 The project will address the following key areas:
 \begin{enumerate}
-    \item \textbf{Decoupling System Components with a Message Queue:} Introduce RabbitMQ as a message queue to facilitate asynchronous communication between the master and workers, enabling independent scaling and improves system fault tolerance.
-    \item \textbf{Externalize State Management} Offload state management to Redis and RabbitMQ, reducing dependency on stateful components and enhancing overall system fault tolerance.
+    \item \textbf{Decoupling System Components with a Message Queue:} Introduce RabbitMQ as a message queue to facilitate asynchronous communication between the master and workers, enabling independent scaling and improving system fault tolerance.
+    \item \textbf{Externalize State Management} Offload state management to Redis and RabbitMQ, reducing dependency on stateful components and enhancing the overall system fault tolerance.
     \item \textbf{Developing a Dynamic and Predictive Scaling Policy for Workers:} Implement a dynamic scaling policy for worker pods that adjusts the number of instances based on real-time system load, ensuring optimal resource utilization and responsiveness.
     \item \textbf{Designing Mechanisms to Minimize Latency During Worker Failures:} Develop fault detection and recovery mechanisms to quickly identify and recover from worker failures, minimizing service disruptions and maintaining low latency.
     \item \textbf{Automatic Scaling of Master Pods:} Deploy multiple master pods with autoscaling capabilities based on CPU and memory usage, ensuring efficient allocation of resources under varying workloads.
