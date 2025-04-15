@@ -11,7 +11,7 @@ The system consists of the following components:
     \item \textbf{Live Processing Service:} Formerly known as the master pod, it manages transcription tasks, coordinates worker allocation with the Worker Manager, and maintains a WebSocket connection with the client.
     \item \textbf{Worker Manager:} Allocates workers to process audio data based on the requested model and monitors the worker pods.
     \item \textbf{Worker:} Process the audio data using the specified ASR model and return the transcription results.
-    \item \textbf{Message Queues:} RabbitMQ is used to decouple the communication between the Live Processing Service and the Worker.
+    \item \textbf{Message Queues:} RabbitMQ is used to decouple the communication between the Live Processing Service and the worker.
     \item \textbf{Redis:} Stores the state information of the system, such as worker statuses and task details.
 \end{itemize}
 
@@ -23,7 +23,7 @@ The system consists of the following components:
 \end{figure}
 
 \subsection{System Flow}
-The sequence diagram in Figure \ref{fig:sequence_diagram} provides a detailed visualization of the ASR system's flow, showing the interactions between components during the transcription process.
+The sequence diagram in Figure \ref{fig:sequence_diagram} provides a detailed visualisation of the ASR system's flow, showing the interactions between components during the transcription process.
 
 \clearpage
 
@@ -79,79 +79,79 @@ The Live Processing Service manages WebSocket connections with clients to facili
 \end{enumerate}
 
 
-The Live Processing Service is built using Tornado \cite{tornado}, an asynchronous web framework optimized for handling long-lived connections and scaling to thousands of concurrent WebSocket sessions. This makes it well-suited for real-time applications such as the ASR system.
+The Live Processing Service is built using Tornado \cite{tornado}, an asynchronous web framework optimised for handling long-lived connections and scaling to thousands of concurrent WebSocket sessions. This makes it well-suited for real-time applications such as the ASR system.
 
 \subsection{WebSocket Handler}
 The WebSocket handler manages WebSocket connections with clients and streams transcription results back to them. It processes the following events:
 
 \begin{itemize}
-    \item \textbf{open:} Authenticates incoming WebSocket requests, initializes task and result queues in RabbitMQ, requests worker allocation from the Worker Manager, and starts consuming transcription results from the result queue.
+    \item \textbf{open:} Authenticates incoming WebSocket requests, initialises task and result queues in RabbitMQ, requests worker allocation from the Worker Manager and starts consuming transcription results from the result queue.
     \item \textbf{on\_message:} Receives audio data from the client and places it into the task queue.
     \item \textbf{close:} Closes the WebSocket connection with the client and performs cleanup operations.
 \end{itemize}
 
 \subsection{Asynchronous RabbitMQ}
-To maintain non-blocking performance, the Live Processing Service utilizes an asynchronous RabbitMQ client compatible with Tornado. This enables concurrent task management without disrupting the event loop.
+To maintain non-blocking performance, the Live Processing Service utilises an asynchronous RabbitMQ client compatible with Tornado. This enables concurrent task management without disrupting the event loop.
 
 A dedicated asynchronous RabbitMQ client with exponential backoff was implemented to handle network disruptions and RabbitMQ failures. Code \ref{lst:rabbitmq_client} illustrates the implementation.
 
 \begin{lstlisting}[language=python, caption={Asynchronous RabbitMQ Client}, label={lst:rabbitmq_client}]
 async def connect(self):
-      """
-      Connect to RabbitMQ.
-      """
-      attempts = 0
-      while attempts < RABBITMQ_MAX_RETRIES:
-          try:
-              self.logger.info(f"trying to connect to {self.host}:{self.port}")
-              self.logger.info(f"using {self.username} as username")
-              self.connection = await aio_pika.connect_robust(
-                  host=self.host,
-                  port=self.port,
-                  login=self.username,
-                  password=self.password,
-              )
-              self.logger.info("Connected to RabbitMQ")
-              break
-          except Exception as e:
-              self.logger.error(f"Failed to connect to RabbitMQ: {e}")
-              attempts += 1
-              await asyncio.sleep(RABBITMQ_BACKOFF_FACTOR * attempts)
+  """
+  Connect to RabbitMQ.
+  """
+  attempts = 0
+  while attempts < RABBITMQ_MAX_RETRIES:
+      try:
+          self.logger.info(f"trying to connect to {self.host}:{self.port}")
+          self.logger.info(f"using {self.username} as username")
+          self.connection = await aio_pika.connect_robust(
+              host=self.host,
+              port=self.port,
+              login=self.username,
+              password=self.password,
+          )
+          self.logger.info("Connected to RabbitMQ")
+          break
+      except Exception as e:
+          self.logger.error(f"Failed to connect to RabbitMQ: {e}")
+          attempts += 1
+          await asyncio.sleep(RABBITMQ_BACKOFF_FACTOR * attempts)
 \end{lstlisting}
 
 \subsection{Worker Allocation via gRPC}
 The Live Processing Service requests worker allocation from the Worker Manager using gRPC. This ensures low latency, and efficient communication, which is critical for real-time transcription.
 
-To allocate a worker for a transcription task, the Live Processing Service sends a gRPC request specifying the required ASR model. The Worker Manager responds with an available worker instance. This interaction leverages Protocol Buffers for efficient data serialization and the gRPC stub generated from the service definition.
+To allocate a worker for a transcription task, the Live Processing Service sends a gRPC request specifying the required ASR model. The Worker Manager responds with an available worker instance. This interaction leverages Protocol Buffers for efficient data serialisation and the gRPC stub generated from the service definition.
 
 Code \ref{lst:grpc_request} illustrates the gRPC request process.
 
 \begin{lstlisting}[language=python, caption={gRPC Request for Worker Allocation}, label={lst:grpc_request}]
 async def allocate_worker_from_worker_manger(self, model_name, task_queue):
-      """
-      Allocate an idle worker from the WorkerManager service.
+  """
+  Allocate an idle worker from the WorkerManager service.
 
-      Args:
-          model_name (str): Name of the model to allocate the worker for.
-          task_queue (str): Name of the task queue to assign to the worker.
-      """
-      async with grpc.aio.insecure_channel(
-          f"{WORKER_MANAGER_SERVICE}:{WORKER_MANAGER_PORT}"
-      ) as channel:
-          stub = worker_manager_pb2_grpc.WorkerManagerServiceStub(channel)
-          request = worker_manager_pb2.AllocateWorkerRequest(
-              model_name=model_name, task_queue=task_queue
+  Args:
+      model_name (str): Name of the model to allocate the worker for.
+      task_queue (str): Name of the task queue to assign to the worker.
+  """
+  async with grpc.aio.insecure_channel(
+      f"{WORKER_MANAGER_SERVICE}:{WORKER_MANAGER_PORT}"
+  ) as channel:
+      stub = worker_manager_pb2_grpc.WorkerManagerServiceStub(channel)
+      request = worker_manager_pb2.AllocateWorkerRequest(
+          model_name=model_name, task_queue=task_queue
+      )
+      response = await stub.AllocateWorker(request)
+
+      if response.success:
+          logger.info(
+              f"Worker {response.worker_name} allocated successfully: {response.message}"
           )
-          response = await stub.AllocateWorker(request)
-
-          if response.success:
-              logger.info(
-                  f"Worker {response.worker_name} allocated successfully: {response.message}"
-              )
-              return response.worker_name
-          else:
-              logger.error(f"Failed to allocate worker: {response.message}")
-              return None
+          return response.worker_name
+      else:
+          logger.error(f"Failed to allocate worker: {response.message}")
+          return None
 \end{lstlisting}
 
 
@@ -196,7 +196,7 @@ The Worker Manager is responsible for managing and coordinating worker pods to e
 The Worker Manager consists of two primary components:
 \begin{enumerate}
     \item \textbf{Worker Manager Server:} Exposes gRPC APIs for worker allocation and heartbeat monitoring.
-    \item \textbf{Worker Manager Monitor:} Detects worker failures, reallocates tasks, and enforces scaling policies.
+    \item \textbf{Worker Manager Monitor:} Detects worker failures, reallocates tasks and enforces scaling policies.
 \end{enumerate}
 
 \subsection{Worker Manager Server}
@@ -236,51 +236,51 @@ Figure \ref{fig:worker_manager_monitor} illustrates the process of worker health
 Code \ref{lst:worker_fault_tolerance} shows the snippet of the Worker Manager Monitor's fault tolerance mechanism for the workers.
 
 \begin{lstlisting}[language=python, caption={Worker Fault Tolerance Mechanism}, label={lst:worker_fault_tolerance}]
-  async def monitor_heartbeats(self):
-        """
-        Monitor worker heartbeats and reallocate workers if necessary.
-        """
-        logger.info("Monitoring worker heartbeats...")
-        self.redis_client = self.redis.get_client()
-        while True:
-            current_time = asyncio.get_event_loop().time()
-            # logger.debug(f"Current time: {current_time}")
-            for worker_name, value in self.redis_client.hgetall(
-                "WorkerHeartbeats"
-            ).items():
-                lock_key = f"lock:worker_heartbeat:{worker_name}"
-                try:
-                    # Acquire distributed lock
-                    if self.acquire_lock(lock_key):
-                        model_name, last_heartbeat = value.split(",")
-                        if (
-                            current_time - float(last_heartbeat)
-                            > WORKER_HEARTBEAT_TIMEOUT
-                        ):
-                            logger.info(
-                                f"Worker {worker_name} missed heartbeat. Allocating new worker."
-                            )
-                            try:
-                                task_queue = self.redis_client.hget(
-                                    "TaskAllocation", f"Worker:{worker_name}"
-                                )
-                            except Exception as e:
-                                logger.error(f"Failed to get task queue: {str(e)}")
-                                raise
-                            self.allocate_worker(model_name, task_queue)
-                            self.redis_client.hdel("WorkerHeartbeats", worker_name)
-                            logger.info(f"Worker {worker_name} deallocated.")
-                    else:
-                        logger.warning(f"Failed to acquire lock for {worker_name}")
-                except Exception as e:
-                    logger.error(
-                        f"Failed to monitor heartbeat for {worker_name}: {str(e)}"
-                    )
-                finally:
-                    # Release distributed lock
-                    self.release_lock(lock_key)
+async def monitor_heartbeats(self):
+  """
+  Monitor worker heartbeats and reallocate workers if necessary.
+  """
+  logger.info("Monitoring worker heartbeats...")
+  self.redis_client = self.redis.get_client()
+  while True:
+      current_time = asyncio.get_event_loop().time()
+      # logger.debug(f"Current time: {current_time}")
+      for worker_name, value in self.redis_client.hgetall(
+          "WorkerHeartbeats"
+      ).items():
+          lock_key = f"lock:worker_heartbeat:{worker_name}"
+          try:
+              # Acquire distributed lock
+              if self.acquire_lock(lock_key):
+                  model_name, last_heartbeat = value.split(",")
+                  if (
+                      current_time - float(last_heartbeat)
+                      > WORKER_HEARTBEAT_TIMEOUT
+                  ):
+                      logger.info(
+                          f"Worker {worker_name} missed heartbeat. Allocating new worker."
+                      )
+                      try:
+                          task_queue = self.redis_client.hget(
+                              "TaskAllocation", f"Worker:{worker_name}"
+                          )
+                      except Exception as e:
+                          logger.error(f"Failed to get task queue: {str(e)}")
+                          raise
+                      self.allocate_worker(model_name, task_queue)
+                      self.redis_client.hdel("WorkerHeartbeats", worker_name)
+                      logger.info(f"Worker {worker_name} deallocated.")
+              else:
+                  logger.warning(f"Failed to acquire lock for {worker_name}")
+          except Exception as e:
+              logger.error(
+                  f"Failed to monitor heartbeat for {worker_name}: {str(e)}"
+              )
+          finally:
+              # Release distributed lock
+              self.release_lock(lock_key)
 
-            await asyncio.sleep(WORKER_MANAGER_MONITOR_INTERVAL)
+      await asyncio.sleep(WORKER_MANAGER_MONITOR_INTERVAL)
 \end{lstlisting}
 
 To prevent race conditions when multiple Worker Manager pods are deployed, the Worker Manager first acquires a distributed lock before checking a worker’s last heartbeat. If a worker exceeds the timeout threshold, it is removed, and a new worker is assigned to its task queue.
@@ -290,8 +290,8 @@ To validate the fault tolerance mechanism, the Worker Manager was tested under f
 
 To simulate a worker failure, the worker pod processing the audio data can be deliberately terminated using the following command:
 \begin{verbatim}
-  kubectl delete -n asr-sdk --now <worker-pod-name> \
-    --cascade=background
+ kubectl delete -n asr-sdk --now <worker-pod-name> \
+ --cascade=background
 \end{verbatim}
 
 Figure \ref{fig:worker_fault_tolerance} illustrates the Worker Manager detecting that the worker pod \texttt{worker-\allowbreak stateful-english-0} has failed to send a heartbeat. As a result, it reallocates the task to an available idle worker, \texttt{worker-stateful-english-1}, ensuring uninterrupted processing.
@@ -304,7 +304,7 @@ Figure \ref{fig:worker_fault_tolerance} illustrates the Worker Manager detecting
 \end{figure}
 
 \subsubsection{Worker Scaling Policy}
-The Worker Manager dynamically scales worker pods based on system load. A configurable threshold, \texttt{SCALING\_TARGET}, defines the minimum number of idle pods required at any given time. The Worker Manager periodically evaluates worker utilization and adjusts the number of replicas accordingly to ensure optimal resource allocation.
+The Worker Manager dynamically scales worker pods based on system load. A configurable threshold, \texttt{SCALING\_TARGET}, defines the minimum number of idle worker pods required at any given time. The Worker Manager periodically evaluates workers' state and adjusts the number of replicas accordingly to ensure optimal resource allocation.
 
 Figure \ref{fig:worker_scaling_policy} illustrates an example where there are 2 busy worker pods and 2 idle worker pods. If the \texttt{SCALING\_TARGET} is set to 3, the Worker Manager scales up the Worker StatefulSet to 5 replicas when the number of idle pods falls below the threshold. Conversely, when the workers finish processing, the Worker Manager scales down the replicas to ensure the number of idle pods meets the \texttt{SCALING\_TARGET}.
 
@@ -319,31 +319,30 @@ Code \ref{lst:worker_scaling} shows the snippet of the Worker scaling mechanism.
 
 \begin{lstlisting}[language=python, caption={Worker Scaling Policy}, label={lst:worker_scaling}]
 async def monitor_and_scale():
-    """
-    Monitor the number of busy pods for each model and scale the statefulset up or down based on the number of idle pods.
-    """
+ """
+ Monitor the number of busy pods for each model and scale the statefulset up or down based on the number of idle pods.
+ """
+  while True:
+      for model in MODELS:
+          total_pods, busy_pods = get_pod_states(model)
+          idle_pods = total_pods - busy_pods
+          logger.info(
+              f"Idle pods: {idle_pods}, Busy pods: {busy_pods}, Total pods: {total_pods}"
+          )
 
-    while True:
-        for model in MODELS:
-            total_pods, busy_pods = get_pod_states(model)
-            idle_pods = total_pods - busy_pods
-            logger.info(
-                f"Idle pods: {idle_pods}, Busy pods: {busy_pods}, Total pods: {total_pods}"
-            )
+          if idle_pods < SCALING_TARGET:
+              # Scale up
+              new_replicas = total_pods + (SCALING_TARGET - idle_pods)
+              logger.info(f"Scaling up to {new_replicas} replicas")
+              scale_statefulset(new_replicas)
+          elif idle_pods > SCALING_TARGET:
+              # Scale down
+              new_replicas = total_pods - (idle_pods - SCALING_TARGET)
+              logger.info(f"Scaling down to {new_replicas} replicas")
+              scale_statefulset(new_replicas)
 
-            if idle_pods < SCALING_TARGET:
-                # Scale up
-                new_replicas = total_pods + (SCALING_TARGET - idle_pods)
-                logger.info(f"Scaling up to {new_replicas} replicas")
-                scale_statefulset(new_replicas)
-            elif idle_pods > SCALING_TARGET:
-                # Scale down
-                new_replicas = total_pods - (idle_pods - SCALING_TARGET)
-                logger.info(f"Scaling down to {new_replicas} replicas")
-                scale_statefulset(new_replicas)
-
-        # Wait for the next check
-        await asyncio.sleep(CHECK_INTERVAL)
+      # Wait for the next check
+      await asyncio.sleep(CHECK_INTERVAL)
 \end{lstlisting}
 
 The system checks idle pods every \texttt{CHECK\_INTERVAL} seconds, ensuring that scaling adjustments do not occur too frequently. This is to allow for the previous scaling operation to take effect before the next check, preventing excessive scaling activity.
@@ -351,7 +350,7 @@ The system checks idle pods every \texttt{CHECK\_INTERVAL} seconds, ensuring tha
 \subsubsection{Testing Worker Scaling}
 To validate the worker scaling policy, the system was tested under varying workloads to observe how the Worker Manager adapts in real-time.
 
-Figure \ref{fig:worker_scaling_up_down} shows the logs of the Worker Manager, illustrating the dynamic scaling behavior of the Worker Manager. When a transcription task starts and an available worker is assigned to process it, the number of idle pods drops below the \texttt{SCALING\_TARGET}, triggering an automatic scale-up. Conversely, once the task is completed and the worker becomes idle again, the Worker Manager scales down the replicas to optimize resource usage.
+Figure \ref{fig:worker_scaling_up_down} shows the logs of the Worker Manager, illustrating the dynamic scaling behavior of the Worker Manager. When a transcription task starts and an available worker is assigned to process it, the number of idle pods drops below the \texttt{SCALING\_TARGET}, triggering an automatic scale-up. Conversely, once the task is completed and the worker becomes idle again, the Worker Manager scales down the replicas to optimise resource usage.
 
 \begin{figure}[H]
   \centering
@@ -367,35 +366,35 @@ Code \ref{lst:health_check} shows the implementation of the health and readiness
 
 \begin{lstlisting}[language=python, caption={Worker Manager Monitor Health and Readiness Checks}, label={lst:health_check}]
 async def healthz(request):
-    return web.Response(text="OK")
+  return web.Response(text="OK")
 
 async def ready(request):
-    # Check Redis connection
-    try:
-        redis_client = WorkerManagerRedisClient().get_client()
-        redis_client.ping()
-    except Exception as e:
-        logger.error(f"Readiness check failed: Redis connection error: {str(e)}")
-        return web.Response(status=500, text="Redis connection error")
+  # Check Redis connection
+  try:
+      redis_client = WorkerManagerRedisClient().get_client()
+      redis_client.ping()
+  except Exception as e:
+      logger.error(f"Readiness check failed: Redis connection error: {str(e)}")
+      return web.Response(status=500, text="Redis connection error")
 
-    # Check if the monitor can acquire a lock
-    lock_key = "readiness_check_lock"
-    if not monitor.acquire_lock(lock_key, timeout=5):
-        logger.error("Readiness check failed: Unable to acquire lock")
-        return web.Response(status=500, text="Unable to acquire lock")
-    monitor.release_lock(lock_key)
+  # Check if the monitor can acquire a lock
+  lock_key = "readiness_check_lock"
+  if not monitor.acquire_lock(lock_key, timeout=5):
+      logger.error("Readiness check failed: Unable to acquire lock")
+      return web.Response(status=500, text="Unable to acquire lock")
+  monitor.release_lock(lock_key)
 
-    return web.Response(text="OK")
+  return web.Response(text="OK")
 \end{lstlisting}
 
-The health check (\texttt{healthz}) provides a basic indicator of whether the Worker Manager Monitor is running. It responds with an "OK" message to confirm the service is active.
+The health check (\texttt{healthz}) provides a basic indicator of whether the Worker Manager Monitor is running. It responds with an “OK” message to confirm the service is active.
 The readiness check (\texttt{ready}) performs the following validations to ensure the monitor is ready to function:
 \begin{enumerate}
     \item \textbf{Redis Connection:} Verifies the monitor can connect to Redis by sending a \texttt{PING} request.
     \item \textbf{Lock Acquisition:} Ensures the monitor can acquire and release a distributed lock, which is critical for managing shared resources.
 \end{enumerate}
 
-When deployed on Kubernetes, it continuously monitors the readiness and liveness endpoints to determine if the service is ready to receive traffic or if it needs to be restarted. Figure \ref{fig:k8s_healthcheck} shows the successful readiness and liveness check at every 10 seconds interval.
+When deployed on Kubernetes, it continuously monitors the readiness and liveness endpoints to determine if the service is ready to receive traffic or if it needs to be restarted. Figure \ref{fig:k8s_healthcheck} shows the successful readiness and liveness check at every 10-second interval.
 
 \begin{figure}[H]
   \centering
@@ -412,18 +411,18 @@ To interact with AWS services, it is necessary to create an AWS access key. This
 
 Once the access key is generated, the AWS CLI can be configured by running the command:
 \begin{verbatim}
-  aws configure
+ aws configure
 \end{verbatim}
 The CLI will prompt for the access key, secret key, region, and output format. For ease of use, a named profile can also be set up using:
 \begin{verbatim}
-  aws configure --profile <profile-name>
+ aws configure --profile <profile-name>
 \end{verbatim}
 This enables switching between different AWS accounts and regions as needed.
 
 \subsection{Setting Up Terraform Configuration}
 Terraform is used to manage infrastructure as code. There are three main Terraform commands:
 \begin{itemize}
-    \item \texttt{terraform init}: Initializes the configuration, downloads necessary providers, and sets up modules.
+    \item \texttt{terraform init}: Initialises the configuration, downloads necessary providers, and sets up modules.
     \item \texttt{terraform plan}: Generates an execution plan to show the changes Terraform will make to the infrastructure. Code \ref{lst:terraform_plan} shows an example of the Terraform execution plan output.
     \item \texttt{terraform apply}: Applies the changes to create or update infrastructure resources. This will update our cloud environment to match the desired state defined in the Terraform configuration files.
 \end{itemize}
@@ -432,29 +431,29 @@ Terraform is used to manage infrastructure as code. There are three main Terrafo
 To enable collaboration among multiple developers, the Terraform state file can be stored in an Amazon S3 bucket. The state file contains the current infrastructure state and helps Terraform determine necessary changes for future deployments.
 
 
-Code \ref{lst:state_bucket} shows the Terraform configuration for setting up the state bucket. We can set the bucket name and tags as variables to customize the bucket's name and attributes. This can be done by defining the variables in a separate \texttt{variables.tf} file.
+Code \ref{lst:state_bucket} shows the Terraform configuration for setting up the state bucket. We can set the bucket name and tags as variables to customise the bucket's name and attributes. This can be done by defining the variables in a separate \texttt{variables.tf} file.
 
 \begin{lstlisting}[language=Terraform, caption={Terraform Configuration for Setting Up State Bucket}, label={lst:state_bucket}]
 resource "aws_s3_bucket" "terraform_state" {
-  bucket = var.bucket_name
+ bucket = var.bucket_name
 
-  tags = var.tags
+ tags = var.tags
 }
 
 resource "aws_s3_bucket_versioning" "terraform_state" {
-  bucket = aws_s3_bucket.terraform_state.id
-  versioning_configuration {
-    status = "Enabled"
-  }
+ bucket = aws_s3_bucket.terraform_state.id
+ versioning_configuration {
+ status = "Enabled"
+ }
 }
 
 resource "aws_s3_bucket_public_access_block" "terraform_state" {
-  bucket = aws_s3_bucket.terraform_state.id
+ bucket = aws_s3_bucket.terraform_state.id
 
-  block_public_acls       = true
-  block_public_policy     = true
-  ignore_public_acls      = true
-  restrict_public_buckets = true
+ block_public_acls       = true
+ block_public_policy     = true
+ ignore_public_acls      = true
+ restrict_public_buckets = true
 }
 \end{lstlisting}
 
@@ -464,19 +463,19 @@ To prevent race conditions when multiple developers modify the infrastructure si
 
 \begin{lstlisting}[language=Terraform, caption={Terraform Configuration for Setting Up DynamoDB Table}, label={lst:dynamodb_table}]
 resource "aws_dynamodb_table" "terraform-lock" {
-    name = "terraform-lock"
-    hash_key = "LockID"
-    read_capacity = 10
-    write_capacity = 10
+ name = "terraform-lock"
+ hash_key = "LockID"
+ read_capacity = 10
+ write_capacity = 10
     
-    attribute {
-      name = "LockID"
-      type = "S"
-    }
+ attribute {
+ name = "LockID"
+ type = "S"
+ }
     
-    tags = {
-      Name = "Terraform Lock Table"
-    }
+ tags = {
+ Name = "Terraform Lock Table"
+ }
 }
 \end{lstlisting}
 
@@ -484,12 +483,12 @@ The Terraform backend configuration can then be updated to use the S3 bucket and
 
 \begin{lstlisting}[language=Terraform, caption={Terraform Backend Configuration}, label={lst:backend_config}]
 terraform {
-    backend "s3" {
-        bucket         = "terraform-state-bucket"
-        key            = "terraform.tfstate"
-        region         = "ap-southeast-1"
-        dynamodb_table = "terraform-lock"
-    }
+ backend "s3" {
+ bucket         = "terraform-state-bucket"
+ key            = "terraform.tfstate"
+ region         = "ap-southeast-1"
+ dynamodb_table = "terraform-lock"
+ }
 }
 \end{lstlisting}
 
@@ -500,7 +499,7 @@ The Terraform configuration for creating the EFS CSI driver and attaching it to 
 
 To deploy these resources, the following commands are executed:
 \begin{itemize}
-    \item \texttt{terraform init}: Initializes the Terraform configuration and downloads the necessary providers and modules.
+    \item \texttt{terraform init}: Initialises the Terraform configuration and downloads the necessary providers and modules.
     \item \texttt{terraform plan}: Generates an execution plan that shows the changes Terraform will make to the infrastructure.
     \item \texttt{terraform apply}: Applies the changes to the infrastructure and deploys the resources.
 \end{itemize}
@@ -551,7 +550,7 @@ On the EC2 instance:
 
 To connect to the EKS cluster, the AWS CLI can be used to update the \texttt{kubeconfig} file with the cluster details. The following command retrieves the cluster configuration and updates the \texttt{kubeconfig} file:
 \begin{verbatim}
-  aws eks --region <region> update-kubeconfig --name <cluster-name>
+ aws eks --region <region> update-kubeconfig --name <cluster-name>
 \end{verbatim}
 
 Once the \texttt{kubeconfig} file is updated, \texttt{kubectl} can be used to interact with the EKS cluster.
@@ -559,7 +558,7 @@ Once the \texttt{kubeconfig} file is updated, \texttt{kubectl} can be used to in
 \subsection{Deploying ASR System Components}
 The ASR system can be deployed to the Kubernetes cluster using the Kubernetes manifest files provided in the repository. The deployment process can be initiated with the following command:
 \begin{verbatim}
-  kubectl apply -f <file>
+ kubectl apply -f <file>
 \end{verbatim}
 
 The deployment includes the following components:
@@ -567,15 +566,15 @@ The deployment includes the following components:
     \item \textbf{Live Processing Service Deployment:} Deploys the Live Processing Service to manage transcription tasks.
     \item \textbf{Worker Manager Server and Monitor Deployment:} Deploys the Worker Manager Server to handle gRPC requests and the Worker Manager Monitor to manage worker health.
     \item \textbf{Worker Deployment:} Deploys the worker pods responsible for processing audio data.
-    \item \textbf{Persistent Volume and Persistent Volume Claim:}  Defines the storage requirements for the EFS  volume used by the ASR system.
+    \item \textbf{Persistent Volume and Persistent Volume Claim:} Defines the storage requirements for the EFS  volume used by the ASR system.
 \end{itemize}
 
 \subsection{Horizontal Pod Autoscaler (HPA)}
-The Kubernetes HPA automatically adjusts the number of pods in a deployment based on resource utilization, such as CPU or memory, or custom metrics. This ensures efficient resource allocation and improved system responsiveness under varying workloads.
+The Kubernetes HPA automatically adjusts the number of pods in a deployment based on resource utilisation, such as CPU, memory, or custom metrics. This ensures efficient resource allocation and improved system responsiveness under varying workloads.
 
 The HPA configuration is defined in a YAML file and applied to the cluster using:
 \begin{verbatim}
-  kubectl apply -f <file>
+ kubectl apply -f <file>
 \end{verbatim}
 
 Code \ref{lst:HPA_live_processing_server} provides an example HPA configuration for the Live Processing Server.
@@ -585,50 +584,50 @@ Code \ref{lst:HPA_live_processing_server} provides an example HPA configuration 
 apiVersion: autoscaling/v2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: live-processing-server-hpa
-  namespace: asr-sdk
+ name: live-processing-server-hpa
+ namespace: asr-sdk
 spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: live-processing-server-deployment
-  minReplicas: 2
-  maxReplicas: 10
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 75
-    - type: Resource
-      resource:
-        name: memory
-        target:
-          type: Utilization
-          averageUtilization: 75
+ scaleTargetRef:
+ apiVersion: apps/v1
+ kind: Deployment
+ name: live-processing-server-deployment
+ minReplicas: 2
+ maxReplicas: 10
+ metrics:
+ - type: Resource
+ resource:
+ name: cpu
+ target:
+ type: Utilization
+ averageUtilization: 75
+ - type: Resource
+ resource:
+ name: memory
+ target:
+ type: Utilization
+ averageUtilization: 75
 \end{lstlisting}
 
 This configuration defines the following:
 \begin{itemize}
     \item \textbf{Target Deployment:} The HPA scales the \texttt{live-processing-server-deployment}.
     \item \textbf{Replica Scaling Range:} The deployment is maintained between a minimum of 2 and a maximum of 10 replicas.
-    \item \textbf{Scaling Metrics:} The autoscaler monitors CPU and memory utilization, scaling up or down when usage exceeds or falls below 75\%.
+    \item \textbf{Scaling Metrics:} The autoscaler monitors CPU and memory utilisation, scaling up or down when usage exceeds or falls below 75\%.
 \end{itemize}
 \subsubsection{Testing the HPA}
 To verify the HPA's behavior under load, a benchmarking tool such as \texttt{wrk} can be used to simulate traffic.
 
 The following command generates a load test by sending 25 concurrent WebSocket requests for 30 seconds using 12 threads:
 \begin{verbatim}
-  wrk -t12 -c25 -d30s ws://<live-processing-service-url>/client/ws/speech
+ wrk -t12 -c25 -d30s ws://<live-processing-service-url>/client/ws/speech
 \end{verbatim}
 
 To monitor the HPA scaling behavior in real-time, use:
 \begin{verbatim}
-  kubectl get hpa -n asr-sdk live-processing-server-hpa --watch
+ kubectl get hpa -n asr-sdk live-processing-server-hpa --watch
 \end{verbatim}
 
-As shown in Figure \ref{fig:hpa_cli}, after 30 seconds of sustained load, the CPU utilization surpasses the 75\% threshold, triggering the HPA to scale the deployment from 2 to 7 replicas.
+As shown in Figure \ref{fig:hpa_cli}, after 30 seconds of sustained load, the CPU utilisation surpasses the 75\% threshold, triggering the HPA to scale the deployment from 2 to 7 replicas.
 
 \begin{figure}[!h]
   \centering
@@ -640,32 +639,32 @@ As shown in Figure \ref{fig:hpa_cli}, after 30 seconds of sustained load, the CP
 \subsection{Helm Charts}
 Helm charts were used to deploy the RabbitMQ and Redis clusters. The charts used were from Bitnami, which provides pre-configured Helm charts for popular applications, including RabbitMQ \cite{rabbitmq_chart} and Redis \cite{redis_chart}.
 
-Users can customize their deployments by specifying configuration parameters in a \texttt{values.yaml} file. This file allows for modifications such as the number of replicas, resource limits, and persistence settings. The full list of configurable values is available in the official Helm chart repository \cite{rabbitmq_chart, redis_chart}.
+Users can customise their deployments by specifying configuration parameters in a \texttt{values.yaml} file. This file allows for modifications such as the number of replicas, resource limits, and persistence settings. The full list of configurable values is available in the official Helm chart repository \cite{rabbitmq_chart, redis_chart}.
 
 
 The following commands deploy the Redis and RabbitMQ clusters using Helm:
 \begin{verbatim}
-  # Deploy Redis cluster
-  helm install redis oci://registry-1.docker.io/bitnamicharts/redis \
-    -f values.yaml --namespace asr-sdk --create-namespace
+ # Deploy Redis cluster
+ helm install redis oci://registry-1.docker.io/bitnamicharts/redis \
+ -f values.yaml --namespace asr-sdk --create-namespace
   
-  # Deploy RabbitMQ cluster
-  helm install rabbitmq oci://registry-1.docker.io/bitnamicharts/rabbitmq \
-    -f values.yaml --namespace asr-sdk --create-namespace
+ # Deploy RabbitMQ cluster
+ helm install rabbitmq oci://registry-1.docker.io/bitnamicharts/rabbitmq \
+ -f values.yaml --namespace asr-sdk --create-namespace
 \end{verbatim}
 
-To ensure data persistence for RabbitMQ and Redis, EBS can be configured as the persistent storage backend.
+To ensure data persistence for RabbitMQ and Redis, EBS can be configured as the persistent storage backend through:
 \begin{enumerate}
-  \item Install the EBS CSI driver on the EKS cluster if it is not already installed.
-  \item Annotate the EBS CSI service account with the IAM role created for EBS via Terraform using the following command:
+  \item Installing the EBS CSI driver on the EKS cluster if not installed.
+  \item Annotating the EBS CSI service account with the IAM role created for EBS via Terraform using the following command:
   \begin{verbatim} 
-  kubectl annotate serviceaccount ebs-csi-controller-sa -n kube-system \
-    eks.amazonaws.com/role-arn=<ARN_of_EBS_CSI_Driver_Role>
+ kubectl annotate serviceaccount ebs-csi-controller-sa -n kube-system \
+ eks.amazonaws.com/role-arn=<ARN_of_EBS_CSI_Driver_Role>
   \end{verbatim}
 \end{enumerate}
 
 \subsection{Kubernetes Dashboard}
-To effectively visualize the Kubernetes cluster and monitor deployed resources, the Kubernetes Dashboard provides a graphical interface for managing the cluster, inspecting workloads, and troubleshooting issues. The dashboard allows users to view real-time metrics, manage deployments, and analyze resource utilization. Figure \ref{fig:kubernetes_dashboard} illustrates an example of the Kubernetes Dashboard.
+To effectively visualise the Kubernetes cluster and monitor deployed resources, the Kubernetes Dashboard provides a graphical interface for managing the cluster, inspecting workloads, and troubleshooting issues. The dashboard allows users to view real-time metrics, manage deployments, and analyse resource utilisation. Figure \ref{fig:kubernetes_dashboard} illustrates an example of the Kubernetes Dashboard.
 \begin{figure}[ht]
   \centering
   \includegraphics[width=\textwidth]{figures/kubernetes_dashboard.png}
@@ -677,10 +676,10 @@ To effectively visualize the Kubernetes cluster and monitor deployed resources, 
 The Kubernetes Dashboard can be installed using Helm with the following commands:
 
 \begin{verbatim}
-  helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
-  helm upgrade --install kubernetes-dashboard \
-    kubernetes-dashboard/kubernetes-dashboard \
-    --create-namespace --namespace kubernetes-dashboard
+ helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+ helm upgrade --install kubernetes-dashboard \
+ kubernetes-dashboard/kubernetes-dashboard \
+ --create-namespace --namespace kubernetes-dashboard
 \end{verbatim}
 
 \subsubsection{Configuring Access and Permissions}
@@ -698,8 +697,8 @@ The Kubernetes configuration file in Code \ref{lst:k8s_dashboard_dependencies} s
 \subsubsection{Accessing the Dashboard}
 Once the dashboard and necessary permissions are set up, port forwarding can be used to expose the dashboard locally:
 \begin{verbatim}
-  kubectl -n kubernetes-dashboard port-forward \
-    svc/kubernetes-dashboard-kong-proxy 8443:443
+ kubectl -n kubernetes-dashboard port-forward \
+ svc/kubernetes-dashboard-kong-proxy 8443:443
 \end{verbatim}
 
 After running this command, open a web browser and navigate to: \texttt{https://localhost:8443}.
@@ -707,5 +706,5 @@ After running this command, open a web browser and navigate to: \texttt{https://
 \subsubsection{Generating Token}
 To log in to the dashboard, generate an authentication token using:
 \begin{verbatim}
-  kubectl -n kubernetes-dashboard create token admin-user
+ kubectl -n kubernetes-dashboard create token admin-user
 \end{verbatim}

@@ -24,7 +24,7 @@ To enhance scalability and resilience, the new architecture adopts a message que
 In the new design, the master pod publishes transcription tasks to a RabbitMQ task queue. Worker pods asynchronously consume tasks, process the audio, and publish results to a results queue. The master pod retrieves transcription results and sends them back to the client. This design eliminates direct dependencies between components, allowing independent scaling and improved fault tolerance.
 
 \subsection{Enhancing State Management and Fault Tolerance}
-Previously, the worker pods stored audio data in an in-memory queue. If a worker pod crashed, all buffered data would be lost, requiring clients to retransmit. This dependency on volatile storage complicated recovery and degraded system reliability.
+Previously, the worker pods stored audio data in an in-memory queue. If a worker pod crashed, all buffered data would be lost, requiring clients to retransmit. This dependency on volatile storage complicates recovery and degrades system reliability.
 
 \subsubsection{Proposed Solution: Redis for State Persistence}
 To mitigate data loss and improve fault tolerance, the application state is now stored in Redis, ensuring that if a service fails, it can recover essential state information. Additionally, RabbitMQ’s message durability ensures that queued transcription tasks are not lost if a worker crashes. If a worker pod fails mid-transcription, a new worker can pick up the task from the queue without requiring client intervention. This redesign significantly enhances fault tolerance and ensures a seamless recovery mechanism.
@@ -43,15 +43,15 @@ The dynamic scaling policy is managed by an additional service called the Worker
 
 Key features of this solution include:
 \begin{itemize}
-    \item \textbf{Load-based scaling:}  The Worker Manager scales worker pods up or down based on current traffic and processing load, ensuring optimal resource utilization.
-    \item \textbf{Minimized scaling disruptions:}  To prevent excessive scaling activity, the scaling policy incorporates a configurable \texttt{CHECK\_INTERVAL} that limits the frequency of scaling operations.
+    \item \textbf{Load-based scaling:} The Worker Manager scales worker pods up or down based on current traffic and processing load, ensuring optimal resource utilisation.
+    \item \textbf{Minimised scaling disruptions:} To prevent excessive scaling activity, the scaling policy incorporates a configurable \texttt{CHECK\_INTERVAL} that limits the frequency of scaling operations.
 \end{itemize}
 
 \subsection{Improving Documentation and Code Readability}
-The previous ASR system codebase lacked sufficient documentation, making it difficult to onboard new developers and troubleshoot issues. Without clear documentation, understanding system behavior and implementing new features were time-consuming.
+The previous ASR system codebase lacked sufficient documentation, making it difficult to onboard new developers and troubleshoot issues. Without clear documentation, understanding system behaviour and implementing new features were time-consuming.
 
 \subsubsection{Proposed Solution: Structured Documentation Strategy}
-To address these challenges, the new codebase will prioritize comprehensive and clear documentation. A detailed \texttt{README} file will provide an overview of the project, including its architecture, purpose, and key components. Additionally, inline comments will be incorporated throughout the codebase to explain the functionality and intent of each component.
+To address these challenges, the new codebase will prioritise comprehensive and clear documentation. A detailed \texttt{README} file will provide an overview of the project, including its architecture, purpose, and key components. Additionally, inline comments will be incorporated throughout the codebase to explain the functionality and intent of each component.
 
 This documentation strategy offers two key benefits:
 \begin{enumerate}

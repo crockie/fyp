@@ -2,11 +2,10 @@
 
 \section{Conclusion}
 
-This project has significantly improved the scalability, resilience, and fault tolerance of the ASR system by transitioning to a decoupled architecture. By integrating RabbitMQ, the system effectively separates the master and worker pods, enabling independent scaling and reducing interdependencies. This architectural shift enhances flexibility and resilience, ensuring that the system can efficiently handle varying workloads.  
+This project has significantly improved the scalability, resilience, and fault tolerance of the ASR system by transitioning to a decoupled architecture. By integrating RabbitMQ, the system effectively separates the master and worker pods, enabling independent scaling and reducing dependencies. This architectural shift enhances flexibility and resilience, ensuring that the system can efficiently handle varying workloads.
+A dynamic and predictive scaling policy was implemented, allowing the system to adjust worker instances in real time based on workload demands. This optimisation ensures efficient resource utilisation while maintaining low-latency processing, improving overall system responsiveness.  
 
-A dynamic and predictive scaling policy was implemented, allowing the system to adjust worker instances in real-time based on workload demands. This optimization ensures efficient resource utilization while maintaining low-latency processing, improving overall system responsiveness.  
-
-To further enhance reliability, fault recovery mechanisms were introduced to minimize service disruptions. The system can now quickly detect and recover from worker failures, ensuring that transcription tasks continue without interruptions. Additionally, by externalizing application state management to Redis, the system achieves greater resilience against crashes and failures. This stateless design simplifies scaling and ensures that no transcription tasks are lost during failures.  
+To further enhance reliability, fault recovery mechanisms were introduced to minimise service disruptions. The system can now quickly detect and recover from worker failures, ensuring that transcription tasks continue without interruptions. Additionally, by externalising application state management to Redis, the system achieves greater resilience against crashes and failures. This stateless design simplifies scaling and ensures no transcription tasks are lost during failures.  
 
 The deployment of the ASR system on Kubernetes clusters hosted on AWS has streamlined system management, making it easier to scale and maintain. Furthermore, leveraging infrastructure-as-code tools such as Terraform has improved deployment reproducibility, reducing the risk of configuration drift and simplifying operational tasks.  
 
@@ -18,18 +17,18 @@ While this project has introduced significant improvements, several areas remain
 
 A potential enhancement is running Redis in Sentinel mode to provide high availability and automatic failover. Using the Helm chart provided by Bitnami, Redis can be deployed with Sentinel for automated leader election and failover handling, ensuring continuous availability even in the event of node failures.  
 
-To support this transition, system components interacting with Redis will require modifications to accommodate Sentinel’s connection management and failover mechanisms. Additionally, deployment scripts and infrastructure configurations will need to be updated accordingly.  
+To support this transition, system components interacting with Redis will require modifications to accommodate Sentinel's connection management and failover mechanisms. Additionally, deployment scripts and infrastructure configurations will need to be updated accordingly.  
 
 \subsection{Conducting Chaos Engineering Experiments}
 
-To further validate system resilience, chaos engineering experiments can be introduced to simulate real-world failure scenarios. By deliberately inducing failures such as network partitions, pod crashes, or Redis downtime, the system’s fault tolerance and recovery mechanisms can be rigorously tested.  
+Chaos engineering experiments can be introduced to simulate real-world failure scenarios to validate system resilience further. The system's fault tolerance and recovery mechanisms can be rigorously tested by deliberately inducing failures such as network partitions, pod crashes, or Redis downtime.  
 
-These experiments will help uncover hidden vulnerabilities and enable proactive improvements to enhance system reliability. Implementing controlled chaos testing will ensure that the system remains highly available and robust under unexpected failure conditions.  
+These experiments will help uncover hidden vulnerabilities and enable proactive improvements to enhance system reliability. Implementing controlled chaos testing will ensure the system remains highly available and robust under unexpected failure conditions.  
 
 \subsection{Enhancing Monitoring and Observability}
 
-Effective monitoring and observability are critical for maintaining a stable production environment. While the system currently includes basic logging and monitoring, further improvements can be made by integrating advanced observability tools.  
+Effective monitoring and observability are critical for maintaining a stable production environment. While the system currently includes basic logging and monitoring, integrating advanced observability tools can further improve it.  
 
-Incorporating Prometheus and Grafana will enable real-time tracking of key performance metrics such as CPU and memory usage, request latency, and error rates. These insights can help identify bottlenecks, optimize resource allocation, and troubleshoot issues more efficiently. Additionally, setting up automated alerts and notifications will allow for proactive incident response, minimizing potential downtime.  
+Incorporating Prometheus and Grafana will enable real-time tracking of key performance metrics such as CPU and memory usage, request latency, and error rates. These insights can help identify bottlenecks, optimise resource allocation, and troubleshoot issues more efficiently. Additionally, setting up automated alerts and notifications will allow for proactive incident response, minimising potential downtime.  
 
 By implementing these future enhancements, the ASR system can achieve even greater reliability, scalability, and operational efficiency, ensuring seamless transcription services under varying conditions.
