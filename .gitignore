@@ -1,7 +1,8 @@
 *
+!latex_report/
+!latex_report/figures/
 !*.tex
 !*.pdf
 !*.bib
-!figures/
-!figures/*
+!*.png
 !.gitignore
