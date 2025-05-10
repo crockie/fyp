@@ -6,3 +6,5 @@
 !*.bib
 !*.png
 !.gitignore
+!README.md
+!*.pptx
